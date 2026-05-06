@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>Space Game</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="hud">
+        <div id="hud-info">
+            <div>Souris : viser &nbsp;|&nbsp; Clic gauche / Espace : tirer</div>
+            <div>W / S (ou ↑↓) : tangage &nbsp;|&nbsp; A / D (ou ←→) : lacet</div>
+            <div>Q / E : roulis</div>
+            <div>Shift : accélérer &nbsp;|&nbsp; Ctrl : freiner &nbsp;|&nbsp; X : boost</div>
+            <div>R (maintenir) : verrouiller cibles → relâcher : salve missiles</div>
+        </div>
+        <div id="hud-stats">
+            <div>Vague : <span id="wave">–</span></div>
+            <div><span id="wave-status">–</span></div>
+            <div>HP : <span id="hp">100</span></div>
+            <div>Vitesse : <span id="speed">0</span></div>
+            <div>Ennemis : <span id="enemies">0</span></div>
+            <div>Locks : <span id="locks">0</span></div>
+            <div>Missiles : <span id="cooldown">prêt</span></div>
+        </div>
+    </div>
+
+    <div id="wave-banner" aria-hidden="true"></div>
+    <div id="powerup-banner" aria-hidden="true"></div>
+    <div id="buffs"></div>
+
+    <div id="defeat-overlay">
+        <div id="defeat-card">
+            <h1>VAISSEAU DÉTRUIT</h1>
+            <div class="defeat-stats">
+                <div>Vague atteinte : <span id="defeat-wave">0</span></div>
+                <div>Ennemis abattus : <span id="defeat-kills">0</span></div>
+            </div>
+            <button id="defeat-restart">Relancer</button>
+        </div>
+    </div>
+
+    <div id="crosshair-center" aria-hidden="true">
+        <div class="ch-h"></div>
+        <div class="ch-v"></div>
+        <div class="ch-dot"></div>
+    </div>
+    <div id="reticle" aria-hidden="true"></div>
+
+    <canvas id="game"></canvas>
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
