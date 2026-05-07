@@ -4,6 +4,7 @@ export class MouseAim {
         this.x = 0;
         this.y = 0;
         this.firing = false;
+        this.locking = false;
         this.onUpdate = onUpdate;
 
         canvas.addEventListener('mousemove', (e) => {
@@ -17,11 +18,16 @@ export class MouseAim {
 
         canvas.addEventListener('mousedown', (e) => {
             if (e.button === 0) this.firing = true;
+            else if (e.button === 2) this.locking = true;
         });
         window.addEventListener('mouseup', (e) => {
             if (e.button === 0) this.firing = false;
+            else if (e.button === 2) this.locking = false;
         });
-        window.addEventListener('blur', () => { this.firing = false; });
+        window.addEventListener('blur', () => {
+            this.firing = false;
+            this.locking = false;
+        });
 
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     }

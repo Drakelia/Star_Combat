@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BoostState } from './BoostState.js';
 
 export class ShipController {
     constructor(ship, input, opts = {}) {
@@ -18,16 +19,32 @@ export class ShipController {
         this.rollSpeed = opts.rollSpeed ?? 1.8;
 
         this.acceleration = opts.acceleration ?? 30;
+        this.strafeAcceleration = opts.strafeAcceleration ?? 26;
         this.boostMultiplier = opts.boostMultiplier ?? 2.5;
-        this.maxSpeed = opts.maxSpeed ?? 220;
+        this.maxSpeed = opts.maxSpeed ?? 110;
+        this.boostMaxSpeed = opts.boostMaxSpeed ?? 180;
         this.brakeStrength = opts.brakeStrength ?? 1.6;
         this.drag = opts.drag ?? 0.04;
+        this.boostLateralBrake = opts.boostLateralBrake ?? 6;
+
+        this.boost = new BoostState(opts.boost);
 
         this._tmpQ = new THREE.Quaternion();
         this._forward = new THREE.Vector3();
+        this._right = new THREE.Vector3();
+        this._sideVel = new THREE.Vector3();
         this._axisX = new THREE.Vector3(1, 0, 0);
         this._axisY = new THREE.Vector3(0, 1, 0);
         this._axisZ = new THREE.Vector3(0, 0, 1);
+    }
+
+    getBoostStatus() {
+        return {
+            charge: this.boost.charge,
+            max: this.boost.max,
+            ratio: this.boost.ratio,
+            active: this.boost.active,
+        };
     }
 
     update(dt) {
@@ -37,8 +54,6 @@ export class ShipController {
         let pitch = 0, yaw = 0, roll = 0;
         if (input.any('KeyA', 'ArrowLeft')) roll += 1;
         if (input.any('KeyD', 'ArrowRight')) roll -= 1;
-        if (input.isDown('KeyQ')) yaw += 1;
-        if (input.isDown('KeyE')) yaw -= 1;
 
         if (mouse) {
             const a = mouse.axes(0.08);
@@ -63,8 +78,13 @@ export class ShipController {
         if (input.any('KeyW', 'ArrowUp')) thrustInput += 1;
         if (input.any('KeyS', 'ArrowDown')) thrustInput -= 1;
 
-        const boosting = input.isDown('ControlLeft') || input.isDown('ControlRight');
-        const boost = boosting ? this.boostMultiplier : 1;
+        let strafeInput = 0;
+        if (input.isDown('KeyQ')) strafeInput -= 1;
+        if (input.isDown('KeyE')) strafeInput += 1;
+
+        const wantsBoost = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+        const boosting = this.boost.update(dt, wantsBoost);
+        const accelMul = boosting ? this.boostMultiplier : 1;
         const braking = input.isDown('Space');
 
         const wantsFire = mouse && mouse.firing;
@@ -81,21 +101,35 @@ export class ShipController {
         }
 
         this._forward.set(0, 0, -1).applyQuaternion(obj.quaternion);
+        this._right.set(1, 0, 0).applyQuaternion(obj.quaternion);
 
         if (thrustInput !== 0) {
-            ship.velocity.addScaledVector(this._forward, this.acceleration * boost * thrustInput * dt);
+            ship.velocity.addScaledVector(this._forward, this.acceleration * accelMul * thrustInput * dt);
+        }
+        if (strafeInput !== 0) {
+            const strafeMul = boosting ? 0.4 : 1;
+            ship.velocity.addScaledVector(this._right, this.strafeAcceleration * strafeMul * strafeInput * dt);
         }
 
         if (braking) {
             ship.velocity.addScaledVector(ship.velocity, -this.brakeStrength * dt);
         }
 
+        if (boosting) {
+            const fwdSpeed = ship.velocity.dot(this._forward);
+            this._sideVel.copy(ship.velocity).addScaledVector(this._forward, -fwdSpeed);
+            const decay = Math.exp(-this.boostLateralBrake * dt);
+            this._sideVel.multiplyScalar(decay);
+            const dampedFwd = fwdSpeed >= 0 ? fwdSpeed : fwdSpeed * decay;
+            ship.velocity.copy(this._sideVel).addScaledVector(this._forward, dampedFwd);
+        }
+
         ship.velocity.multiplyScalar(1 - this.drag * dt);
 
         const speed = ship.velocity.length();
-        const cap = boosting ? this.maxSpeed * this.boostMultiplier : this.maxSpeed;
+        const cap = boosting ? this.boostMaxSpeed : this.maxSpeed;
         if (speed > cap) ship.velocity.multiplyScalar(cap / speed);
 
-        ship.thrust = Math.max(0, thrustInput) * boost;
+        ship.thrust = Math.max(0, thrustInput) * accelMul;
     }
 }

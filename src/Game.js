@@ -61,6 +61,8 @@ export class Game {
         this.waveEl = document.getElementById('wave');
         this.waveStatusEl = document.getElementById('wave-status');
         this.waveBanner = document.getElementById('wave-banner');
+        this.boostFillEl = document.getElementById('boost-fill');
+        this.boostTextEl = document.getElementById('boost-text');
 
         this.enemyOverlay = document.getElementById('enemy-overlay');
         this._markerPool = [];
@@ -198,7 +200,7 @@ export class Game {
             obstacles,
         });
 
-        const isLockHeld = this.input.isDown('KeyR');
+        const isLockHeld = !!(this.mouse && this.mouse.locking);
         const justReleased = this._wasLockHeld && !isLockHeld;
         this.missiles.update(dt, {
             player: this.ship,
@@ -259,6 +261,16 @@ export class Game {
         const status = this.missiles.getStatus();
         if (this.lockEl) this.lockEl.textContent = status.locked;
         if (this.cdEl) this.cdEl.textContent = status.cooldown > 0 ? status.cooldown.toFixed(1) + 's' : 'prêt';
+
+        const boost = this.shipController.getBoostStatus();
+        if (this.boostFillEl) {
+            this.boostFillEl.style.width = (boost.ratio * 100) + '%';
+            this.boostFillEl.classList.toggle('active', boost.active);
+            this.boostFillEl.classList.toggle('low', !boost.active && boost.ratio < 0.25);
+        }
+        if (this.boostTextEl) {
+            this.boostTextEl.textContent = boost.charge.toFixed(1) + 's';
+        }
 
         const w = this.waveManager.getStatus();
         if (this.waveEl) this.waveEl.textContent = w.wave || '–';
@@ -447,6 +459,8 @@ export class Game {
         this.ship.fireCooldown = 0;
         this.ship.object.position.set(200, 40, 200);
         this.ship.object.quaternion.identity();
+
+        this.shipController.boost.reset();
 
         this.waveManager.wave = 0;
         this.waveManager.state = 'intermission';

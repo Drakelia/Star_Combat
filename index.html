@@ -26,13 +26,13 @@
                 <div class="start-controls-title">Commandes</div>
                 <div class="ctrl-grid">
                     <div><span class="key">Souris</span><span>Viser</span></div>
-                    <div><span class="key">Clic</span><span>Tirer</span></div>
+                    <div><span class="key">Clic G.</span><span>Tirer</span></div>
                     <div><span class="key">W / S</span><span>Accélérer / Reculer</span></div>
                     <div><span class="key">Espace</span><span>Freiner</span></div>
                     <div><span class="key">A / D</span><span>Roulis</span></div>
-                    <div><span class="key">Q / E</span><span>Lacet</span></div>
-                    <div><span class="key">Ctrl</span><span>Boost (vitesse max plus élevée)</span></div>
-                    <div class="ctrl-wide"><span class="key">R</span><span>Maintenir pour verrouiller, relâcher pour la salve missiles</span></div>
+                    <div><span class="key">Q / E</span><span>Latéral gauche / droite</span></div>
+                    <div><span class="key">Shift</span><span>Boost (réserve, jusqu'à 180)</span></div>
+                    <div class="ctrl-wide"><span class="key">Clic D.</span><span>Maintenir pour verrouiller, relâcher pour la salve missiles</span></div>
                 </div>
             </div>
             <button id="start-play">LANCER LA PARTIE</button>
@@ -65,6 +65,14 @@
             <div class="hud-row"><span class="hud-label">CIBLES</span><span class="hud-val" id="locks">0</span></div>
             <div class="hud-row"><span class="hud-label">MSL</span><span class="hud-val" id="cooldown">prêt</span></div>
             <div class="hud-row"><span class="hud-label">ENN</span><span class="hud-val" id="enemies">0</span></div>
+        </div>
+
+        <div id="hud-bottom-center">
+            <div class="hud-block-title">BOOST</div>
+            <div class="hud-bar boost">
+                <div class="hud-bar-fill" id="boost-fill"></div>
+                <div class="hud-bar-text"><span id="boost-text">10.0s</span></div>
+            </div>
         </div>
     </div>
 
