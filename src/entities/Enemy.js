@@ -41,6 +41,9 @@ export class Enemy {
 
         this.fireCooldown = 0.5 + Math.random() * 0.5;
 
+        this.boostCooldown = 8 + Math.random() * 24;
+        this.boostTime = 0;
+
         const u = Math.random() * Math.PI * 2;
         const v = Math.acos(2 * Math.random() - 1);
         this.orbitDir = new THREE.Vector3(
