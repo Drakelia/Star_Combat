@@ -402,4 +402,11 @@ export class SoundManager {
         this.engine.gain.gain.setTargetAtTime(0.05 + target * 0.25, t, 0.12);
         this.engine.filter.frequency.setTargetAtTime(140 + target * 380, t, 0.12);
     }
+
+    stopEngine() {
+        if (!this.engine || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        this.engine.gain.gain.cancelScheduledValues(t);
+        this.engine.gain.gain.setTargetAtTime(0, t, 0.15);
+    }
 }

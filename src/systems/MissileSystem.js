@@ -159,6 +159,8 @@ export class MissileSystem {
         const playerPos = player.object.position;
         this._forward.copy(FORWARD).applyQuaternion(player.object.quaternion);
 
+        const missilesReady = this.cooldown <= 0;
+
         let lockedCount = 0;
         for (const [, lock] of this.locks) if (lock.progress >= 1) lockedCount++;
 
@@ -179,7 +181,11 @@ export class MissileSystem {
                 this.locks.set(enemy, lock);
             }
 
-            const canGain = isLocking && inCone && (lock.progress >= 1 || lockedCount < this.maxLocks);
+            if (!missilesReady) {
+                lock.progress = 0;
+            }
+
+            const canGain = missilesReady && isLocking && inCone && (lock.progress >= 1 || lockedCount < this.maxLocks);
             if (canGain) {
                 if (lock.progress < 1) {
                     lock.progress = Math.min(1, lock.progress + dt * this.lockSpeed);
@@ -192,7 +198,7 @@ export class MissileSystem {
             }
 
             const m = lock.marker;
-            m.visible = lock.progress > 0.02;
+            m.visible = missilesReady && lock.progress > 0.02;
             if (m.visible) {
                 m.position.copy(enemy.object.position);
                 if (camera) m.lookAt(camera.position);

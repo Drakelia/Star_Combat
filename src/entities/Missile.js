@@ -55,7 +55,7 @@ export class Missile {
         flameGeo.rotateX(-Math.PI / 2);
         flameGeo.translate(0, 0, 0.7);
         const flameMat = new THREE.MeshBasicMaterial({
-            color: 0xffcc66,
+            color: 0x88aaff,
             transparent: true,
             opacity: 0.9,
             blending: THREE.AdditiveBlending,
@@ -72,9 +72,9 @@ export class Missile {
             trailPos[i * 3 + 1] = position.y;
             trailPos[i * 3 + 2] = position.z;
             const t = 1 - i / trailLength;
-            trailCol[i * 3 + 0] = 1.0 * t;
-            trailCol[i * 3 + 1] = 0.7 * t * t;
-            trailCol[i * 3 + 2] = 0.3 * t * t * t;
+            trailCol[i * 3 + 0] = 0.55 * t * t;
+            trailCol[i * 3 + 1] = 0.35 * t * t * t;
+            trailCol[i * 3 + 2] = 1.0 * t;
         }
         const trailGeo = new THREE.BufferGeometry();
         trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));

@@ -52,6 +52,7 @@ export class WaveManager {
             const hp = 30 + Math.floor(this.wave * 4);
             const enemy = new Enemy({ position: pos, hp });
             this.scene.add(enemy.object);
+            if (enemy.trail) this.scene.add(enemy.trail);
             this.enemies.push(enemy);
         }
 
@@ -62,7 +63,7 @@ export class WaveManager {
 
     _countForWave(w) {
         const base = 5 + w * 2.2;
-        return Math.max(1, Math.min(100, Math.round(base * this.difficultyMultiplier)));
+        return Math.max(1, Math.min(60, Math.round(base * this.difficultyMultiplier)));
     }
 
     getStatus() {

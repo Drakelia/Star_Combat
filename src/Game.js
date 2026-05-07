@@ -140,6 +140,7 @@ export class Game {
         this.ship = new Ship();
         this.ship.object.position.set(200, 40, 200);
         scene.add(this.ship.object);
+        scene.add(this.ship.trail);
 
         this.shipController = new ShipController(this.ship, this.input, {
             combat: this.combat,
@@ -191,6 +192,7 @@ export class Game {
 
         for (const enemy of this.enemies) {
             this.enemyAI.update(enemy, this.ship, dt, this.combat);
+            enemy.updateTrail();
         }
 
         const obstacles = this.asteroidFields.flatMap(f => f.asteroids);
@@ -222,6 +224,8 @@ export class Game {
                 this.stats.kills += 1;
                 this.powerups.onEnemyKilled(e.object.position);
                 this.sceneManager.scene.remove(e.object);
+                if (e.trail) this.sceneManager.scene.remove(e.trail);
+                e.dispose?.();
                 this.enemies.splice(i, 1);
             }
         }
@@ -408,6 +412,7 @@ export class Game {
 
     _showDefeat() {
         this.gameOver = true;
+        this.sounds.stopEngine();
         this.music.playDefeat();
         const overlay = document.getElementById('defeat-overlay');
         if (!overlay) return;
@@ -423,7 +428,11 @@ export class Game {
     restart() {
         const scene = this.sceneManager.scene;
 
-        for (const e of this.enemies) scene.remove(e.object);
+        for (const e of this.enemies) {
+            scene.remove(e.object);
+            if (e.trail) scene.remove(e.trail);
+            e.dispose?.();
+        }
         this.enemies.length = 0;
 
         for (const m of this.missiles.missiles) m.dispose();
@@ -459,6 +468,7 @@ export class Game {
         this.ship.fireCooldown = 0;
         this.ship.object.position.set(200, 40, 200);
         this.ship.object.quaternion.identity();
+        this.ship.resetTrail();
 
         this.shipController.boost.reset();
 
