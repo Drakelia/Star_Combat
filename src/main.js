@@ -38,6 +38,16 @@ const startMenuMusic = () => {
 window.addEventListener('pointerdown', startMenuMusic);
 window.addEventListener('keydown', startMenuMusic);
 
+window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyF' || e.repeat) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (document.fullscreenElement) {
+        document.exitFullscreen?.();
+    } else {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+});
+
 playBtn.addEventListener('click', () => {
     const d = DIFFICULTIES[selectedDifficulty];
     overlay.classList.add('hidden');
