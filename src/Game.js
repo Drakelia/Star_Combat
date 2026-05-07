@@ -65,7 +65,12 @@ export class Game {
         this.boostTextEl = document.getElementById('boost-text');
 
         this.enemyOverlay = document.getElementById('enemy-overlay');
+        this.leadOverlay = document.getElementById('lead-overlay');
         this._markerPool = [];
+        this._leadPool = [];
+        this.projectileSpeed = 380;
+        this.projectileLifetime = 2.2;
+        this.aimDistance = 1500;
         this._tmpVec = new THREE.Vector3();
         this._tmpNdc = new THREE.Vector3();
         this._tmpForward = new THREE.Vector3();
@@ -257,6 +262,7 @@ export class Game {
 
         this._updateHud();
         this._updateEnemyMarkers();
+        this._updateLeadIndicators();
 
         this.sceneManager.render();
         requestAnimationFrame(this._loop);
@@ -389,6 +395,150 @@ export class Game {
                 item.arrow.style.display = 'block';
                 item.wrapper.style.transform =
                     `translate(${px}px, ${py}px) translate(-50%, -50%) rotate(${angle}rad) scale(${scale})`;
+            }
+        }
+    }
+
+    _updateLeadIndicators() {
+        if (!this.leadOverlay) return;
+        const cam = this.sceneManager.camera;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        const muzzle = this.ship.object.position;
+        const s = this.projectileSpeed;
+        const s2 = s * s;
+        const maxT = this.projectileLifetime;
+
+        const camFwd = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
+
+        while (this._leadPool.length < this.enemies.length) {
+            const dot = document.createElement('div');
+            dot.className = 'lead-dot';
+            const line = document.createElement('div');
+            line.className = 'lead-line';
+            this.leadOverlay.appendChild(line);
+            this.leadOverlay.appendChild(dot);
+            this._leadPool.push({ dot, line });
+        }
+
+        for (let i = 0; i < this._leadPool.length; i++) {
+            const item = this._leadPool[i];
+            const enemy = i < this.enemies.length ? this.enemies[i] : null;
+            if (!enemy || !enemy.alive) {
+                if (item.dot.style.display !== 'none') {
+                    item.dot.style.display = 'none';
+                    item.line.style.display = 'none';
+                }
+                continue;
+            }
+
+            const ePos = enemy.object.position;
+            const sv = this.ship.velocity;
+            const evx = enemy.velocity.x - sv.x;
+            const evy = enemy.velocity.y - sv.y;
+            const evz = enemy.velocity.z - sv.z;
+
+            const Rx = ePos.x - muzzle.x;
+            const Ry = ePos.y - muzzle.y;
+            const Rz = ePos.z - muzzle.z;
+            const a = evx * evx + evy * evy + evz * evz - s2;
+            const b = 2 * (Rx * evx + Ry * evy + Rz * evz);
+            const c = Rx * Rx + Ry * Ry + Rz * Rz;
+
+            let t = -1;
+            if (Math.abs(a) < 0.0001) {
+                if (Math.abs(b) > 0.0001) t = -c / b;
+            } else {
+                const disc = b * b - 4 * a * c;
+                if (disc >= 0) {
+                    const sq = Math.sqrt(disc);
+                    const t1 = (-b - sq) / (2 * a);
+                    const t2 = (-b + sq) / (2 * a);
+                    const cands = [];
+                    if (t1 > 0) cands.push(t1);
+                    if (t2 > 0) cands.push(t2);
+                    if (cands.length) t = Math.min(...cands);
+                }
+            }
+
+            if (t <= 0 || t > maxT) {
+                item.dot.style.display = 'none';
+                item.line.style.display = 'none';
+                continue;
+            }
+
+            const leadX = ePos.x + evx * t;
+            const leadY = ePos.y + evy * t;
+            const leadZ = ePos.z + evz * t;
+
+            const Bx = leadX - muzzle.x;
+            const By = leadY - muzzle.y;
+            const Bz = leadZ - muzzle.z;
+            const Ax = muzzle.x - cam.position.x;
+            const Ay = muzzle.y - cam.position.y;
+            const Az = muzzle.z - cam.position.z;
+            const B2 = Bx * Bx + By * By + Bz * Bz;
+            const AB = Ax * Bx + Ay * By + Az * Bz;
+            const A2 = Ax * Ax + Ay * Ay + Az * Az;
+            const aimD = this.aimDistance;
+
+            let aimX = leadX, aimY = leadY, aimZ = leadZ;
+            if (B2 > 0.0001) {
+                const disc2 = AB * AB - B2 * (A2 - aimD * aimD);
+                if (disc2 >= 0) {
+                    const sq2 = Math.sqrt(disc2);
+                    const a1 = (-AB + sq2) / B2;
+                    const a2 = (-AB - sq2) / B2;
+                    let alpha = -1;
+                    if (a1 > 0 && a2 > 0) alpha = Math.min(a1, a2);
+                    else if (a1 > 0) alpha = a1;
+                    else if (a2 > 0) alpha = a2;
+                    if (alpha > 0) {
+                        aimX = muzzle.x + alpha * Bx;
+                        aimY = muzzle.y + alpha * By;
+                        aimZ = muzzle.z + alpha * Bz;
+                    }
+                }
+            }
+
+            const dxLead = aimX - cam.position.x;
+            const dyLead = aimY - cam.position.y;
+            const dzLead = aimZ - cam.position.z;
+            const fwdLead = dxLead * camFwd.x + dyLead * camFwd.y + dzLead * camFwd.z;
+
+            const dxE = ePos.x - cam.position.x;
+            const dyE = ePos.y - cam.position.y;
+            const dzE = ePos.z - cam.position.z;
+            const fwdE = dxE * camFwd.x + dyE * camFwd.y + dzE * camFwd.z;
+
+            if (fwdLead <= 0.5 || fwdE <= 0.5) {
+                item.dot.style.display = 'none';
+                item.line.style.display = 'none';
+                continue;
+            }
+
+            const ndcLead = this._tmpNdc.set(aimX, aimY, aimZ).project(cam);
+            const lx = (ndcLead.x * 0.5 + 0.5) * w;
+            const ly = (-ndcLead.y * 0.5 + 0.5) * h;
+
+            const ndcE = this._tmpVec.copy(ePos).project(cam);
+            const ex = (ndcE.x * 0.5 + 0.5) * w;
+            const ey = (-ndcE.y * 0.5 + 0.5) * h;
+
+            const ddx = ex - lx;
+            const ddy = ey - ly;
+            const dist = Math.hypot(ddx, ddy);
+
+            item.dot.style.display = 'block';
+            item.dot.style.transform = `translate(${lx}px, ${ly}px) translate(-50%, -50%)`;
+
+            if (dist > 4) {
+                item.line.style.display = 'block';
+                item.line.style.width = dist + 'px';
+                item.line.style.transform = `translate(${lx}px, ${ly}px) rotate(${Math.atan2(ddy, ddx)}rad)`;
+            } else {
+                item.line.style.display = 'none';
             }
         }
     }

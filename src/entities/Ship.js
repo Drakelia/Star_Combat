@@ -159,6 +159,7 @@ export class Ship {
             damage,
             color,
             lifetime: 2.2,
+            inheritVelocity: this.velocity,
         });
 
         this.fireCooldown = 1 / fireRate;
