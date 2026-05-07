@@ -3,9 +3,9 @@ import * as THREE from 'three';
 export const POWERUP_TYPES = {
     repair:     { color: 0x44ff66, label: 'Réparation' },
     shield:     { color: 0x44aaff, label: 'Bouclier' },
-    frenzy:     { color: 0xff8822, label: 'Salve massive' },
     overcharge: { color: 0xff3344, label: 'Surcharge' },
-    rapid:      { color: 0xffdd33, label: 'Tir rapide' },
+    rapid:      { color: 0xbe33ff, label: 'Tir rapide' },
+    frenzy:     { color: 0xff8822, label: 'Salve massive' },
 };
 
 export class Powerup {

@@ -268,7 +268,7 @@ export class MissileSystem {
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerQ);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(playerQ);
 
-        const total = Math.min(20, Math.max(8, live.length * 2));
+        const total = Math.min(150, live.length * 3);
         for (let i = 0; i < total; i++) {
             const target = live[i % live.length];
             const angle = (i / total) * Math.PI * 2 + Math.random() * 0.5;
