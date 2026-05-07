@@ -41,6 +41,16 @@ export class Enemy {
 
         this.fireCooldown = 0.5 + Math.random() * 0.5;
 
+        const u = Math.random() * Math.PI * 2;
+        const v = Math.acos(2 * Math.random() - 1);
+        this.orbitDir = new THREE.Vector3(
+            Math.sin(v) * Math.cos(u),
+            Math.cos(v) * 0.5,
+            Math.sin(v) * Math.sin(u)
+        ).normalize();
+        this.orbitOmega = (Math.random() < 0.5 ? -1 : 1) * (0.18 + Math.random() * 0.32);
+        this.preferredDist = 50 + Math.random() * 60;
+
         this.trailLength = 240;
         const trailPos = new Float32Array(this.trailLength * 3);
         const trailCol = new Float32Array(this.trailLength * 3);

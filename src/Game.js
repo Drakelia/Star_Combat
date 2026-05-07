@@ -190,9 +190,9 @@ export class Game {
         this.shipController.update(dt);
         for (const e of this.entities) e.update?.(dt);
 
+        this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat);
         for (const enemy of this.enemies) {
-            this.enemyAI.update(enemy, this.ship, dt, this.combat);
-            enemy.updateTrail();
+            if (enemy.alive) enemy.updateTrail();
         }
 
         const obstacles = this.asteroidFields.flatMap(f => f.asteroids);
