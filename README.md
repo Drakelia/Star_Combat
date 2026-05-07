@@ -16,11 +16,12 @@ Puis ouvrir `http://localhost:8000`.
 
 ## Commandes
 
-- **ZQSD / WASD / flèches** : tangage (haut/bas) & lacet (gauche/droite)
-- **A / E** : roulis
-- **Shift** : poussée avant
-- **Ctrl** : freinage
-- **Espace** : boost
+- **W / S** (ou ↑ / ↓) : accélérer / reculer
+- **Espace** : freiner
+- **A / D** (ou ← / →) : roulis (gauche/droite)
+- **Q / E** : lacet
+- **Ctrl** : boost (vitesse max plus élevée)
+- **Souris** : viser (tangage + lacet) — clic gauche : tirer
 
 ## Architecture
 
