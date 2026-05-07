@@ -35,12 +35,10 @@ export class ShipController {
         const obj = ship.object;
 
         let pitch = 0, yaw = 0, roll = 0;
-        if (input.any('KeyW', 'ArrowUp')) pitch += 1;
-        if (input.any('KeyS', 'ArrowDown')) pitch -= 1;
-        if (input.any('KeyA', 'ArrowLeft')) yaw += 1;
-        if (input.any('KeyD', 'ArrowRight')) yaw -= 1;
-        if (input.isDown('KeyQ')) roll += 1;
-        if (input.isDown('KeyE')) roll -= 1;
+        if (input.any('KeyA', 'ArrowLeft')) roll += 1;
+        if (input.any('KeyD', 'ArrowRight')) roll -= 1;
+        if (input.isDown('KeyQ')) yaw += 1;
+        if (input.isDown('KeyE')) yaw -= 1;
 
         if (mouse) {
             const a = mouse.axes(0.08);
@@ -62,11 +60,14 @@ export class ShipController {
         }
 
         let thrustInput = 0;
-        if (input.isDown('ShiftLeft') || input.isDown('ShiftRight')) thrustInput += 1;
-        if (input.isDown('ControlLeft') || input.isDown('ControlRight')) thrustInput -= 0.6;
-        const boost = input.isDown('KeyX') ? this.boostMultiplier : 1;
+        if (input.any('KeyW', 'ArrowUp')) thrustInput += 1;
+        if (input.any('KeyS', 'ArrowDown')) thrustInput -= 1;
 
-        const wantsFire = input.isDown('Space') || (mouse && mouse.firing);
+        const boosting = input.isDown('ControlLeft') || input.isDown('ControlRight');
+        const boost = boosting ? this.boostMultiplier : 1;
+        const braking = input.isDown('Space');
+
+        const wantsFire = mouse && mouse.firing;
         if (this.combat && wantsFire) {
             let aimPoint = null;
             if (this.mouse && this.camera) {
@@ -81,16 +82,18 @@ export class ShipController {
 
         this._forward.set(0, 0, -1).applyQuaternion(obj.quaternion);
 
-        if (thrustInput > 0) {
+        if (thrustInput !== 0) {
             ship.velocity.addScaledVector(this._forward, this.acceleration * boost * thrustInput * dt);
-        } else if (thrustInput < 0) {
+        }
+
+        if (braking) {
             ship.velocity.addScaledVector(ship.velocity, -this.brakeStrength * dt);
         }
 
         ship.velocity.multiplyScalar(1 - this.drag * dt);
 
         const speed = ship.velocity.length();
-        const cap = this.maxSpeed * boost;
+        const cap = boosting ? this.maxSpeed * this.boostMultiplier : this.maxSpeed;
         if (speed > cap) ship.velocity.multiplyScalar(cap / speed);
 
         ship.thrust = Math.max(0, thrustInput) * boost;
