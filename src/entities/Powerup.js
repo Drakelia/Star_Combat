@@ -15,7 +15,7 @@ export class Powerup {
         this.color = def.color;
         this.label = def.label;
         this.alive = true;
-        this.lifetime = 20;
+        this.lifetime = 30;
         this.radius = 2.8;
 
         this.object = new THREE.Group();
@@ -67,7 +67,7 @@ export class Powerup {
         this.ring.rotation.z += dt * 0.4;
         const pulse = 1 + Math.sin(performance.now() * 0.004) * 0.08;
         this.halo.scale.setScalar(pulse);
-        if (this.lifetime < 3) {
+        if (this.lifetime < 5) {
             this.object.visible = Math.sin(this.lifetime * 8) > 0;
         }
     }

@@ -61,8 +61,8 @@ export class WaveManager {
     }
 
     _countForWave(w) {
-        const base = 50 + w * 2.2;
-        return Math.max(1, Math.min(40, Math.round(base * this.difficultyMultiplier)));
+        const base = 5 + w * 2.2;
+        return Math.max(1, Math.min(100, Math.round(base * this.difficultyMultiplier)));
     }
 
     getStatus() {

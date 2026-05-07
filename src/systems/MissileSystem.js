@@ -19,7 +19,7 @@ export class MissileSystem {
         this.lockSpeed = 1.4;
         this.unlockSpeed = 2.5;
         this.maxLocks = Infinity;
-        this.salvoCooldown = 0;
+        this.salvoCooldown = 8;
         this.cooldown = 0;
         this.wasLocking = false;
 
@@ -216,11 +216,21 @@ export class MissileSystem {
     }
 
     _fireSalvo(player) {
-        const targets = [];
+        const lockedTargets = [];
         for (const [enemy, lock] of this.locks) {
-            if (lock.progress >= 1 && enemy.alive) targets.push(enemy);
+            if (lock.progress >= 1 && enemy.alive) lockedTargets.push(enemy);
         }
-        if (targets.length === 0) return;
+        if (lockedTargets.length === 0) return;
+
+        const overcharge = player.overchargeTime > 0;
+        const rapid = player.rapidTime > 0;
+        const missilesPerTarget = rapid ? 3 : 1;
+        const damage = overcharge ? 9999 : 25;
+
+        const targets = [];
+        for (let r = 0; r < missilesPerTarget; r++) {
+            for (const t of lockedTargets) targets.push(t);
+        }
 
         const playerPos = player.object.position;
         const playerQ = player.object.quaternion;
@@ -248,6 +258,7 @@ export class MissileSystem {
                 position: muzzle,
                 direction: launchDir,
                 target: targets[i],
+                damage,
                 homingDelay: 0.5 + Math.random() * 0.4,
             });
             this.missiles.push(m);
@@ -262,13 +273,15 @@ export class MissileSystem {
         const live = enemies.filter((e) => e.alive);
         if (live.length === 0) return;
 
+        const damage = player.overchargeTime > 0 ? 9999 : 25;
+
         const playerPos = player.object.position;
         const playerQ = player.object.quaternion;
         const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(playerQ);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerQ);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(playerQ);
 
-        const total = Math.min(150, live.length * 3);
+        const total = Math.min(150, live.length * 1.8);
         for (let i = 0; i < total; i++) {
             const target = live[i % live.length];
             const angle = (i / total) * Math.PI * 2 + Math.random() * 0.5;
@@ -289,6 +302,7 @@ export class MissileSystem {
                 position: muzzle,
                 direction: launchDir,
                 target,
+                damage,
                 homingDelay: 0.25 + Math.random() * 0.3,
             });
             this.missiles.push(m);

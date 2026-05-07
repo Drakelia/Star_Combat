@@ -383,11 +383,11 @@ export class Game {
         if (type === 'repair') {
             ship.hp = Math.min(ship.maxHp, ship.hp + 40);
         } else if (type === 'shield') {
-            ship.shieldTime = Math.max(ship.shieldTime, 10);
+            ship.shieldTime = Math.max(ship.shieldTime, 18);
         } else if (type === 'rapid') {
-            ship.rapidTime = Math.max(ship.rapidTime, 6);
+            ship.rapidTime = Math.max(ship.rapidTime, 12);
         } else if (type === 'overcharge') {
-            ship.overchargeTime = Math.max(ship.overchargeTime, 6);
+            ship.overchargeTime = Math.max(ship.overchargeTime, 12);
         } else if (type === 'frenzy') {
             this.missiles.fireFrenzy(ship, this.enemies);
         }
