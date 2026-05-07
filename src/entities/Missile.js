@@ -8,14 +8,14 @@ export class Missile {
         direction,
         target = null,
         speed = 70,
-        acceleration = 280,
-        maxSpeed = 460,
-        turnRate = 3.6,
-        lifetime = 6.5,
+        acceleration = 300,
+        maxSpeed = 400,
+        turnRate = 6,
+        lifetime = 15,
         damage = 25,
         radius = 2.4,
-        trailLength = 220,
-        homingDelay = 0.6,
+        trailLength = 300,
+        homingDelay = 0.8,
     } = {}) {
         this.scene = scene;
         this.target = target;
@@ -33,7 +33,7 @@ export class Missile {
             (Math.random() - 0.5),
             (Math.random() - 0.5)
         ).normalize();
-        this.driftStrength = 1.8 + Math.random() * 1.2;
+        this.driftStrength = 0.8 + Math.random() * 0.6;
 
         const dir = direction.clone().normalize();
         this.velocity = dir.clone().multiplyScalar(speed);
@@ -156,14 +156,22 @@ export class Missile {
         this.trail.geometry.attributes.position.needsUpdate = true;
     }
 
+    detachTrail() {
+        const trail = this.trail;
+        this.trail = null;
+        return trail;
+    }
+
     dispose() {
         this.scene.remove(this.mesh);
-        this.scene.remove(this.trail);
         this.mesh.geometry.dispose();
         this.mesh.material.dispose();
         this.flame.geometry.dispose();
         this.flame.material.dispose();
-        this.trail.geometry.dispose();
-        this.trail.material.dispose();
+        if (this.trail) {
+            this.scene.remove(this.trail);
+            this.trail.geometry.dispose();
+            this.trail.material.dispose();
+        }
     }
 }

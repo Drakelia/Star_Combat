@@ -29,7 +29,9 @@ export class MouseAim {
             this.locking = false;
         });
 
-        window.addEventListener('contextmenu', (e) => e.preventDefault());
+        const blockContext = (e) => { e.preventDefault(); e.stopPropagation(); };
+        window.addEventListener('contextmenu', blockContext, true);
+        document.addEventListener('contextmenu', blockContext, true);
     }
 
     axes(deadzone = 0.08) {

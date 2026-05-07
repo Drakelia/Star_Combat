@@ -38,15 +38,29 @@ const startMenuMusic = () => {
 window.addEventListener('pointerdown', startMenuMusic);
 window.addEventListener('keydown', startMenuMusic);
 
+const GAME_KEYS = new Set([
+    'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyX', 'KeyF',
+    'Space', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight',
+    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+]);
+
 window.addEventListener('keydown', (e) => {
-    if (e.code !== 'KeyF' || e.repeat) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (document.fullscreenElement) {
-        document.exitFullscreen?.();
-    } else {
-        document.documentElement.requestFullscreen?.().catch(() => {});
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (/^F\d+$/.test(e.code)) return;
+    if (!GAME_KEYS.has(e.code)) {
+        e.preventDefault();
+        return;
     }
-});
+    if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+    if (e.code === 'KeyF' && !e.repeat) {
+        if (document.fullscreenElement) {
+            document.exitFullscreen?.();
+        } else {
+            document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+    }
+}, true);
 
 playBtn.addEventListener('click', () => {
     const d = DIFFICULTIES[selectedDifficulty];

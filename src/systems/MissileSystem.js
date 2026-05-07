@@ -11,6 +11,8 @@ export class MissileSystem {
 
         this.missiles = [];
         this.locks = new Map();
+        this.fadingTrails = [];
+        this.trailFadeTime = 3;
 
         this.coneCos = Math.cos(THREE.MathUtils.degToRad(22));
         this.range = 320;
@@ -35,6 +37,33 @@ export class MissileSystem {
         if (t < 0) t = 0;
         else if (t > 1) t = 1;
         return this._segAP.subVectors(p, a).addScaledVector(this._segAB, -t).lengthSq();
+    }
+
+    _detonate(m) {
+        const trail = m.detachTrail?.();
+        if (trail) {
+            this.fadingTrails.push({
+                trail,
+                life: this.trailFadeTime,
+                initialOpacity: trail.material.opacity,
+            });
+        }
+        m.alive = false;
+    }
+
+    _updateFadingTrails(dt) {
+        for (let i = this.fadingTrails.length - 1; i >= 0; i--) {
+            const f = this.fadingTrails[i];
+            f.life -= dt;
+            if (f.life <= 0) {
+                this.scene.remove(f.trail);
+                f.trail.geometry.dispose();
+                f.trail.material.dispose();
+                this.fadingTrails.splice(i, 1);
+            } else {
+                f.trail.material.opacity = f.initialOpacity * (f.life / this.trailFadeTime);
+            }
+        }
     }
 
     _makeMarker() {
@@ -70,7 +99,7 @@ export class MissileSystem {
                     const distSq = this._segmentDistSq(m.prevPosition, m.position, m.target.object.position);
                     if (distSq < r * r) {
                         m.target.takeDamage(m.damage);
-                        m.alive = false;
+                        this._detonate(m);
                         if (!m.target.alive) {
                             this.effects?.spawn(m.target.object.position, { count: 110, scale: 1.4, speed: 36 });
                             this.sounds?.explosion({ volume: 0.6 });
@@ -88,7 +117,7 @@ export class MissileSystem {
                         const distSq = this._segmentDistSq(m.prevPosition, m.position, e.object.position);
                         if (distSq < r * r) {
                             e.takeDamage(m.damage);
-                            m.alive = false;
+                            this._detonate(m);
                             if (!e.alive) {
                                 this.effects?.spawn(e.object.position, { count: 100, scale: 1.3, speed: 34 });
                                 this.sounds?.explosion({ volume: 0.55 });
@@ -106,7 +135,7 @@ export class MissileSystem {
                         const r = o.radius + m.radius * 0.6;
                         const distSq = this._segmentDistSq(m.prevPosition, m.position, o.position);
                         if (distSq < r * r) {
-                            m.alive = false;
+                            this._detonate(m);
                             this.effects?.spawn(m.position, { count: 50, scale: 0.8, speed: 24, lifetime: 0.8 });
                             this.sounds?.explosion({ volume: 0.4 });
                             break;
@@ -120,6 +149,8 @@ export class MissileSystem {
                 this.missiles.splice(i, 1);
             }
         }
+
+        this._updateFadingTrails(dt);
 
         this.wasLocking = isLockHeld;
     }
@@ -258,7 +289,7 @@ export class MissileSystem {
                 position: muzzle,
                 direction: launchDir,
                 target,
-                homingDelay: 0.4 + Math.random() * 0.5,
+                homingDelay: 0.25 + Math.random() * 0.3,
             });
             this.missiles.push(m);
         }
