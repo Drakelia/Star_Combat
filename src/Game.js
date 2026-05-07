@@ -258,7 +258,9 @@ export class Game {
             this._showDefeat();
         }
 
-        this.sounds.setEngineThrust(this.ship.thrust);
+        if (!this.gameOver) {
+            this.sounds.setEngineThrust(this.ship.thrust);
+        }
 
         this._updateHud();
         this._updateEnemyMarkers();
