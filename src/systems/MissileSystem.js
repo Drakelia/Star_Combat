@@ -102,7 +102,7 @@ export class MissileSystem {
                         this._detonate(m);
                         if (!m.target.alive) {
                             this.effects?.spawn(m.target.object.position, { count: 110, scale: 1.4, speed: 36 });
-                            this.sounds?.explosion({ volume: 0.6 });
+                            this.sounds?.shipDestroyed({ volume: 1.0 });
                         } else {
                             this.effects?.spawn(m.position, { count: 40, scale: 0.7, speed: 22, lifetime: 0.7 });
                             this.sounds?.explosion({ volume: 0.35 });
@@ -120,7 +120,7 @@ export class MissileSystem {
                             this._detonate(m);
                             if (!e.alive) {
                                 this.effects?.spawn(e.object.position, { count: 100, scale: 1.3, speed: 34 });
-                                this.sounds?.explosion({ volume: 0.55 });
+                                this.sounds?.shipDestroyed({ volume: 0.95 });
                             } else {
                                 this.effects?.spawn(m.position, { count: 35, scale: 0.6, speed: 20, lifetime: 0.6 });
                                 this.sounds?.explosion({ volume: 0.3 });

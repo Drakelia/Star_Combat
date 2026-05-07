@@ -40,7 +40,7 @@ export class CombatSystem {
                                 this.sounds?.hit();
                             } else {
                                 this.effects?.spawn(e.object.position, { count: 90, scale: 1.2, speed: 32 });
-                                this.sounds?.explosion({ volume: 0.55 });
+                                this.sounds?.shipDestroyed({ volume: 0.95 });
                             }
                             break;
                         }
@@ -55,7 +55,7 @@ export class CombatSystem {
                             this.sounds?.hit({ volume: 0.45 });
                         } else if (wasAlive) {
                             this.effects?.spawn(player.object.position, { count: 140, scale: 1.6, speed: 40 });
-                            this.sounds?.explosion({ volume: 0.8 });
+                            this.sounds?.shipDestroyed({ volume: 1.15 });
                         }
                     }
                 }

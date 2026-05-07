@@ -6,7 +6,7 @@ export class MusicManager {
     } = {}) {
         this.menu = new Audio(menuSrc);
         this.menu.loop = true;
-        this.menu.volume = 0.4;
+        this.menu.volume = 0.5;
         this.game = new Audio(gameSrc);
         this.game.loop = true;
         this.game.volume = 0.35;
