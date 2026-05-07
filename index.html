@@ -22,29 +22,54 @@
                 <button class="diff-btn" data-diff="normal">Normal</button>
                 <button class="diff-btn" data-diff="hard">Difficile</button>
             </div>
+            <div class="start-controls">
+                <div class="start-controls-title">Commandes</div>
+                <div class="ctrl-grid">
+                    <div><span class="key">Souris</span><span>Viser</span></div>
+                    <div><span class="key">Clic / Espace</span><span>Tirer</span></div>
+                    <div><span class="key">W / S</span><span>Tangage</span></div>
+                    <div><span class="key">A / D</span><span>Lacet</span></div>
+                    <div><span class="key">Q / E</span><span>Roulis</span></div>
+                    <div><span class="key">Shift</span><span>Accélérer</span></div>
+                    <div><span class="key">Ctrl</span><span>Freiner</span></div>
+                    <div><span class="key">X</span><span>Boost</span></div>
+                    <div class="ctrl-wide"><span class="key">R</span><span>Maintenir pour verrouiller, relâcher pour la salve missiles</span></div>
+                </div>
+            </div>
             <button id="start-play">LANCER LA PARTIE</button>
-            <div class="start-hint">Souris pour viser &nbsp;·&nbsp; Clic / Espace pour tirer &nbsp;·&nbsp; R pour les missiles</div>
         </div>
     </div>
 
     <div id="hud">
-        <div id="hud-info">
-            <div>Souris : viser &nbsp;|&nbsp; Clic gauche / Espace : tirer</div>
-            <div>W / S (ou ↑↓) : tangage &nbsp;|&nbsp; A / D (ou ←→) : lacet</div>
-            <div>Q / E : roulis</div>
-            <div>Shift : accélérer &nbsp;|&nbsp; Ctrl : freiner &nbsp;|&nbsp; X : boost</div>
-            <div>R (maintenir) : verrouiller cibles → relâcher : salve missiles</div>
+        <div id="hud-top">
+            <div class="hud-wave-block">
+                <div class="hud-label">VAGUE</div>
+                <div class="hud-wave-num"><span id="wave">–</span></div>
+                <div class="hud-wave-status"><span id="wave-status">–</span></div>
+            </div>
         </div>
-        <div id="hud-stats">
-            <div>Vague : <span id="wave">–</span></div>
-            <div><span id="wave-status">–</span></div>
-            <div>HP : <span id="hp">100</span></div>
-            <div>Vitesse : <span id="speed">0</span></div>
-            <div>Ennemis : <span id="enemies">0</span></div>
-            <div>Locks : <span id="locks">0</span></div>
-            <div>Missiles : <span id="cooldown">prêt</span></div>
+
+        <div id="hud-bottom-left">
+            <div class="hud-corner-bracket tl"></div>
+            <div class="hud-corner-bracket bl"></div>
+            <div class="hud-block-title">COQUE</div>
+            <div class="hud-bar">
+                <div class="hud-bar-fill" id="hp-fill"></div>
+                <div class="hud-bar-text"><span id="hp">100</span></div>
+            </div>
+        </div>
+
+        <div id="hud-bottom-right">
+            <div class="hud-corner-bracket tr"></div>
+            <div class="hud-corner-bracket br"></div>
+            <div class="hud-row"><span class="hud-label">VEL</span><span class="hud-val" id="speed">0</span></div>
+            <div class="hud-row"><span class="hud-label">CIBLES</span><span class="hud-val" id="locks">0</span></div>
+            <div class="hud-row"><span class="hud-label">MSL</span><span class="hud-val" id="cooldown">prêt</span></div>
+            <div class="hud-row"><span class="hud-label">ENN</span><span class="hud-val" id="enemies">0</span></div>
         </div>
     </div>
+
+    <div id="enemy-overlay" aria-hidden="true"></div>
 
     <div id="wave-banner" aria-hidden="true"></div>
     <div id="powerup-banner" aria-hidden="true"></div>

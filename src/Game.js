@@ -54,12 +54,21 @@ export class Game {
 
         this.speedEl = document.getElementById('speed');
         this.hpEl = document.getElementById('hp');
+        this.hpFillEl = document.getElementById('hp-fill');
         this.enemiesEl = document.getElementById('enemies');
         this.lockEl = document.getElementById('locks');
         this.cdEl = document.getElementById('cooldown');
         this.waveEl = document.getElementById('wave');
         this.waveStatusEl = document.getElementById('wave-status');
         this.waveBanner = document.getElementById('wave-banner');
+
+        this.enemyOverlay = document.getElementById('enemy-overlay');
+        this._markerPool = [];
+        this._tmpVec = new THREE.Vector3();
+        this._tmpNdc = new THREE.Vector3();
+        this._tmpForward = new THREE.Vector3();
+        this._tmpRight = new THREE.Vector3();
+        this._tmpUp = new THREE.Vector3();
 
         this._buildWorld();
 
@@ -230,6 +239,7 @@ export class Game {
         this.sounds.setEngineThrust(this.ship.thrust);
 
         this._updateHud();
+        this._updateEnemyMarkers();
 
         this.sceneManager.render();
         requestAnimationFrame(this._loop);
@@ -237,7 +247,14 @@ export class Game {
 
     _updateHud() {
         if (this.speedEl) this.speedEl.textContent = this.ship.velocity.length().toFixed(1);
-        if (this.hpEl) this.hpEl.textContent = Math.max(0, Math.round(this.ship.hp));
+        const hp = Math.max(0, Math.round(this.ship.hp));
+        if (this.hpEl) this.hpEl.textContent = hp;
+        if (this.hpFillEl) {
+            const ratio = Math.max(0, Math.min(1, this.ship.hp / this.ship.maxHp));
+            this.hpFillEl.style.width = (ratio * 100) + '%';
+            this.hpFillEl.classList.toggle('crit', ratio <= 0.25);
+            this.hpFillEl.classList.toggle('warn', ratio > 0.25 && ratio <= 0.55);
+        }
         if (this.enemiesEl) this.enemiesEl.textContent = this.enemies.length;
         const status = this.missiles.getStatus();
         if (this.lockEl) this.lockEl.textContent = status.locked;
@@ -259,6 +276,93 @@ export class Game {
             if (this.ship.rapidTime > 0) buffs.push(`<span style="color:#ffeeaa">Tir rapide ${this.ship.rapidTime.toFixed(1)}s</span>`);
             buffsEl.innerHTML = buffs.join(' &nbsp;|&nbsp; ');
             buffsEl.style.display = buffs.length ? 'block' : 'none';
+        }
+    }
+
+    _updateEnemyMarkers() {
+        if (!this.enemyOverlay) return;
+        const cam = this.sceneManager.camera;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+
+        const forward = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
+        const right = this._tmpRight.set(1, 0, 0).applyQuaternion(cam.quaternion);
+        const up = this._tmpUp.set(0, 1, 0).applyQuaternion(cam.quaternion);
+
+        while (this._markerPool.length < this.enemies.length) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'enemy-marker-wrap';
+            const dot = document.createElement('div');
+            dot.className = 'enemy-marker';
+            const arrow = document.createElement('div');
+            arrow.className = 'enemy-arrow';
+            wrapper.appendChild(dot);
+            wrapper.appendChild(arrow);
+            wrapper.style.display = 'none';
+            this.enemyOverlay.appendChild(wrapper);
+            this._markerPool.push({ wrapper, dot, arrow });
+        }
+
+        const margin = 28;
+        const halfW = cx - margin;
+        const halfH = cy - margin;
+
+        for (let i = 0; i < this._markerPool.length; i++) {
+            const item = this._markerPool[i];
+            if (i >= this.enemies.length || !this.enemies[i].alive) {
+                if (item.wrapper.style.display !== 'none') item.wrapper.style.display = 'none';
+                continue;
+            }
+            const enemy = this.enemies[i];
+
+            const offset = this._tmpVec.copy(enemy.object.position).sub(cam.position);
+            const fwdDot = offset.dot(forward);
+            const sxView = offset.dot(right);
+            const syView = offset.dot(up);
+            const isBehind = fwdDot <= 0;
+
+            const ndcVec = this._tmpNdc.copy(enemy.object.position).project(cam);
+            const onScreen = !isBehind && Math.abs(ndcVec.x) <= 1 && Math.abs(ndcVec.y) <= 1;
+
+            item.wrapper.style.display = 'block';
+
+            if (onScreen) {
+                const px = (ndcVec.x * 0.5 + 0.5) * w;
+                const py = (-ndcVec.y * 0.5 + 0.5) * h;
+                item.dot.style.display = 'block';
+                item.arrow.style.display = 'none';
+                item.wrapper.style.transform = `translate(${px}px, ${py}px) translate(-50%, -50%)`;
+            } else {
+                let sdx = sxView;
+                let sdy = -syView;
+                const len = Math.hypot(sdx, sdy);
+                if (len < 0.0001) { sdx = 0; sdy = -1; }
+                else { sdx /= len; sdy /= len; }
+
+                const tX = sdx === 0 ? Infinity : halfW / Math.abs(sdx);
+                const tY = sdy === 0 ? Infinity : halfH / Math.abs(sdy);
+                const t = Math.min(tX, tY);
+                const px = cx + sdx * t;
+                const py = cy + sdy * t;
+
+                let outDist;
+                if (!isBehind) {
+                    outDist = Math.max(Math.abs(ndcVec.x), Math.abs(ndcVec.y)) - 1;
+                } else {
+                    const norm = offset.length();
+                    const cosAng = norm > 0 ? fwdDot / norm : -1;
+                    outDist = 1.5 - cosAng * 0.5;
+                }
+                const scale = Math.max(0.7, Math.min(2.4, 0.7 + outDist * 0.55));
+                const angle = Math.atan2(sdx, -sdy);
+
+                item.dot.style.display = 'none';
+                item.arrow.style.display = 'block';
+                item.wrapper.style.transform =
+                    `translate(${px}px, ${py}px) translate(-50%, -50%) rotate(${angle}rad) scale(${scale})`;
+            }
         }
     }
 
