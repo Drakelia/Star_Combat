@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { Enemy } from '../entities/Enemy.js';
 
 export class WaveManager {
-    constructor(scene, enemies, { sounds = null } = {}) {
+    constructor(scene, enemies, { sounds = null, difficultyMultiplier = 1 } = {}) {
         this.scene = scene;
         this.enemies = enemies;
         this.sounds = sounds;
+        this.difficultyMultiplier = difficultyMultiplier;
 
         this.wave = 0;
         this.intermission = 0;
@@ -60,7 +61,8 @@ export class WaveManager {
     }
 
     _countForWave(w) {
-        return Math.min(32, 5 + Math.floor(w * 2.2));
+        const base = 5 + w * 2.2;
+        return Math.max(1, Math.min(40, Math.round(base * this.difficultyMultiplier)));
     }
 
     getStatus() {

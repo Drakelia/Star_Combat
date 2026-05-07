@@ -3,8 +3,6 @@ import { SceneManager } from './scene/SceneManager.js';
 import { InputManager } from './input/InputManager.js';
 import { MouseAim } from './input/MouseAim.js';
 import { Ship } from './entities/Ship.js';
-import { Star } from './entities/Star.js';
-import { Planet } from './entities/Planet.js';
 import { Starfield } from './entities/Starfield.js';
 import { AsteroidField } from './entities/AsteroidField.js';
 import { ShipController } from './controls/ShipController.js';
@@ -13,6 +11,7 @@ import { CollisionSystem } from './physics/CollisionSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
 import { EnemyAI } from './systems/EnemyAI.js';
 import { SoundManager } from './audio/SoundManager.js';
+import { MusicManager } from './audio/MusicManager.js';
 import { ExplosionManager } from './effects/ExplosionManager.js';
 import { MissileSystem } from './systems/MissileSystem.js';
 import { WaveManager } from './systems/WaveManager.js';
@@ -25,7 +24,9 @@ export class Game {
         this.sceneManager = new SceneManager(canvas);
         this.input = new InputManager();
         this.sounds = new SoundManager();
+        this.music = new MusicManager();
         this.clock = new THREE.Clock();
+        this.running = false;
 
         this.reticle = document.getElementById('reticle');
         this.mouse = new MouseAim(canvas, {
@@ -68,27 +69,37 @@ export class Game {
     _buildWorld() {
         const { scene } = this.sceneManager;
 
-        scene.add(new THREE.AmbientLight(0x223355, 0.25));
+        scene.add(new THREE.AmbientLight(0x445577, 0.6));
 
-        this.star = new Star({ radius: 80, position: new THREE.Vector3(0, 0, 0) });
-        scene.add(this.star.mesh);
-        scene.add(this.star.light);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        fillLight.position.set(-600, -400, 1000);
+        scene.add(fillLight);
 
-        this.planet = new Planet({
-            radius: 30,
-            position: new THREE.Vector3(400, 0, -200),
-            color: 0x3a7bd5,
-        });
-        scene.add(this.planet.mesh);
-
-        this.asteroids = new AsteroidField({
-            count: 40,
-            center: new THREE.Vector3(250, 0, 250),
-            innerRadius: 120,
-            outerRadius: 260,
-            height: 30,
-        });
-        scene.add(this.asteroids.group);
+        this.asteroidFields = [];
+        const fieldCount = 10;
+        const worldSpread = 1400;
+        for (let i = 0; i < fieldCount; i++) {
+            const angle = (i / fieldCount) * Math.PI * 2 + Math.random() * 0.4;
+            const dist = 300 + Math.random() * worldSpread;
+            const center = new THREE.Vector3(
+                Math.cos(angle) * dist,
+                (Math.random() - 0.5) * 200,
+                Math.sin(angle) * dist
+            );
+            const inner = 80 + Math.random() * 80;
+            const outer = inner + 140 + Math.random() * 160;
+            const field = new AsteroidField({
+                count: 70 + Math.floor(Math.random() * 40),
+                center,
+                innerRadius: inner,
+                outerRadius: outer,
+                height: 40 + Math.random() * 40,
+                bigChance: 0.08,
+            });
+            scene.add(field.group);
+            this.asteroidFields.push(field);
+        }
+        this.asteroids = this.asteroidFields[0];
 
         this.starfield = new Starfield({ count: 4000, radius: 5000 });
         scene.add(this.starfield.points);
@@ -105,17 +116,21 @@ export class Game {
         this.chaseCamera = new ChaseCamera(this.sceneManager.camera, this.ship);
 
         this.waveManager = new WaveManager(this.sceneManager.scene, this.enemies, { sounds: this.sounds });
-        this.waveManager.start();
 
-        this.collisions.addBody(this.star);
-        this.collisions.addBody(this.planet);
-        this.collisions.addBodies(this.asteroids.asteroids);
+        for (const f of this.asteroidFields) this.collisions.addBodies(f.asteroids);
 
-        this.entities.push(this.star, this.planet, this.ship, this.asteroids);
+        this.entities.push(this.ship, ...this.asteroidFields);
     }
 
     start() {
         this._loop();
+    }
+
+    beginRun(difficultyMultiplier = 1) {
+        this.waveManager.difficultyMultiplier = difficultyMultiplier;
+        this.waveManager.start();
+        this.running = true;
+        this.music.playGame();
     }
 
     _loop = () => {
@@ -129,6 +144,15 @@ export class Game {
             return;
         }
 
+        if (!this.running) {
+            for (const f of this.asteroidFields) f.update(dt);
+            this.ship.object.rotation.y += dt * 0.15;
+            this.chaseCamera.update(dt);
+            this.sceneManager.render();
+            requestAnimationFrame(this._loop);
+            return;
+        }
+
         this.shipController.update(dt);
         for (const e of this.entities) e.update?.(dt);
 
@@ -136,7 +160,7 @@ export class Game {
             this.enemyAI.update(enemy, this.ship, dt, this.combat);
         }
 
-        const obstacles = [this.star, this.planet, ...this.asteroids.asteroids];
+        const obstacles = this.asteroidFields.flatMap(f => f.asteroids);
         this.combat.update(dt, {
             player: this.ship,
             enemies: this.enemies,
@@ -246,6 +270,7 @@ export class Game {
 
     _showDefeat() {
         this.gameOver = true;
+        this.music.playDefeat();
         const overlay = document.getElementById('defeat-overlay');
         if (!overlay) return;
         const killsEl = document.getElementById('defeat-kills');
@@ -254,7 +279,63 @@ export class Game {
         if (waveEl) waveEl.textContent = this.waveManager.wave;
         overlay.classList.add('show');
         const btn = document.getElementById('defeat-restart');
-        if (btn) btn.onclick = () => location.reload();
+        if (btn) btn.onclick = () => this.restart();
+    }
+
+    restart() {
+        const scene = this.sceneManager.scene;
+
+        for (const e of this.enemies) scene.remove(e.object);
+        this.enemies.length = 0;
+
+        for (const m of this.missiles.missiles) m.dispose();
+        this.missiles.missiles.length = 0;
+        for (const [, lock] of this.missiles.locks) {
+            scene.remove(lock.marker);
+            lock.marker.geometry.dispose();
+            lock.marker.material.dispose();
+        }
+        this.missiles.locks.clear();
+        this.missiles.cooldown = 0;
+        this.missiles.wasLocking = false;
+
+        for (const p of this.combat.projectiles) {
+            scene.remove(p.mesh);
+            p.mesh.geometry.dispose();
+            p.mesh.material.dispose();
+        }
+        this.combat.projectiles.length = 0;
+
+        for (const p of this.powerups.list) {
+            if (p.object) scene.remove(p.object);
+        }
+        this.powerups.list.length = 0;
+
+        this.ship.hp = this.ship.maxHp;
+        this.ship.alive = true;
+        this.ship.velocity.set(0, 0, 0);
+        this.ship.thrust = 0;
+        this.ship.shieldTime = 0;
+        this.ship.rapidTime = 0;
+        this.ship.overchargeTime = 0;
+        this.ship.fireCooldown = 0;
+        this.ship.object.position.set(200, 40, 200);
+        this.ship.object.quaternion.identity();
+
+        this.waveManager.wave = 0;
+        this.waveManager.state = 'intermission';
+        this.waveManager.intermission = 0;
+        this.waveManager.justAdvanced = false;
+
+        this.stats.kills = 0;
+        this.gameOver = false;
+        this._wasLockHeld = false;
+        this._prevLockedCount = 0;
+
+        const overlay = document.getElementById('defeat-overlay');
+        if (overlay) overlay.classList.remove('show');
+
+        this.beginRun(this.waveManager.difficultyMultiplier ?? 1);
     }
 
     _flashWaveBanner() {

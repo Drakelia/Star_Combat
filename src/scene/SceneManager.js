@@ -7,6 +7,17 @@ export class SceneManager {
         this.scene.background = new THREE.Color(0x000008);
         this.scene.fog = null;
 
+        const loader = new THREE.CubeTextureLoader().setPath('assets/skybox/');
+        loader.load(
+            ['right.png', 'left.png', 'top.png', 'bottom.png', 'front.png', 'back.png'],
+            (cubeTex) => {
+                cubeTex.colorSpace = THREE.SRGBColorSpace;
+                this.scene.background = cubeTex;
+            },
+            undefined,
+            (err) => console.warn('Skybox load failed:', err)
+        );
+
         this.camera = new THREE.PerspectiveCamera(
             70,
             window.innerWidth / window.innerHeight,

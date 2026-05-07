@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Asteroid } from './Asteroid.js';
 
 export class AsteroidField {
-    constructor({ count = 30, center = new THREE.Vector3(), innerRadius = 150, outerRadius = 320, height = 40 } = {}) {
+    constructor({ count = 30, center = new THREE.Vector3(), innerRadius = 150, outerRadius = 320, height = 40, bigChance = 0.08 } = {}) {
         this.group = new THREE.Group();
         this.asteroids = [];
 
@@ -15,7 +15,10 @@ export class AsteroidField {
                 center.y + y,
                 center.z + Math.sin(angle) * r
             );
-            const radius = 2 + Math.random() * 6;
+            const isBig = Math.random() < bigChance;
+            const radius = isBig
+                ? (2 + Math.random() * 6) * (3 + Math.random() * 2)
+                : 2 + Math.random() * 6;
             const a = new Asteroid({ radius, position: pos, seed: Math.random() });
             this.group.add(a.mesh);
             this.asteroids.push(a);

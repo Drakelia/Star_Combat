@@ -16,8 +16,8 @@ export class MissileSystem {
         this.range = 320;
         this.lockSpeed = 1.4;
         this.unlockSpeed = 2.5;
-        this.maxLocks = 8;
-        this.salvoCooldown = 4.0;
+        this.maxLocks = Infinity;
+        this.salvoCooldown = 0;
         this.cooldown = 0;
         this.wasLocking = false;
 

@@ -14,7 +14,7 @@ export class Missile {
         lifetime = 6.5,
         damage = 25,
         radius = 2.4,
-        trailLength = 70,
+        trailLength = 220,
         homingDelay = 0.6,
     } = {}) {
         this.scene = scene;
@@ -87,6 +87,7 @@ export class Missile {
             depthWrite: false,
         });
         this.trail = new THREE.Line(trailGeo, trailMat);
+        this.trail.frustumCulled = false;
         scene.add(this.trail);
 
         this._tmpA = new THREE.Vector3();
