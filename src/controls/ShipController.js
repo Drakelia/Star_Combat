@@ -32,6 +32,7 @@ export class ShipController {
         this._tmpQ = new THREE.Quaternion();
         this._forward = new THREE.Vector3();
         this._right = new THREE.Vector3();
+        this._up = new THREE.Vector3();
         this._sideVel = new THREE.Vector3();
         this._axisX = new THREE.Vector3(1, 0, 0);
         this._axisY = new THREE.Vector3(0, 1, 0);
@@ -82,10 +83,14 @@ export class ShipController {
         if (input.isDown('KeyQ')) strafeInput -= 1;
         if (input.isDown('KeyE')) strafeInput += 1;
 
+        let verticalInput = 0;
+        if (input.isDown('Space')) verticalInput += 1;
+        if (input.isDown('ControlLeft') || input.isDown('ControlRight')) verticalInput -= 1;
+
         const wantsBoost = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
         const boosting = this.boost.update(dt, wantsBoost);
         const accelMul = boosting ? this.boostMultiplier : 1;
-        const braking = input.isDown('Space');
+        const braking = input.isDown('KeyX');
 
         const wantsFire = mouse && mouse.firing;
         if (this.combat && wantsFire) {
@@ -102,6 +107,7 @@ export class ShipController {
 
         this._forward.set(0, 0, -1).applyQuaternion(obj.quaternion);
         this._right.set(1, 0, 0).applyQuaternion(obj.quaternion);
+        this._up.set(0, 1, 0).applyQuaternion(obj.quaternion);
 
         if (thrustInput !== 0) {
             ship.velocity.addScaledVector(this._forward, this.acceleration * accelMul * thrustInput * dt);
@@ -109,6 +115,10 @@ export class ShipController {
         if (strafeInput !== 0) {
             const strafeMul = boosting ? 0.4 : 1;
             ship.velocity.addScaledVector(this._right, this.strafeAcceleration * strafeMul * strafeInput * dt);
+        }
+        if (verticalInput !== 0) {
+            const strafeMul = boosting ? 0.4 : 1;
+            ship.velocity.addScaledVector(this._up, this.strafeAcceleration * strafeMul * verticalInput * dt);
         }
 
         if (braking) {
