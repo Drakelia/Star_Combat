@@ -17,6 +17,8 @@ import { MissileSystem } from './systems/MissileSystem.js';
 import { WaveManager } from './systems/WaveManager.js';
 import { PowerupSystem } from './systems/PowerupSystem.js';
 import { POWERUP_TYPES } from './entities/Powerup.js';
+import { HudManager } from './hud/HudManager.js';
+import { SpatialGrid } from './physics/SpatialGrid.js';
 
 export class Game {
     constructor(canvas) {
@@ -52,17 +54,8 @@ export class Game {
         this.gameOver = false;
         this.stats = { kills: 0 };
 
-        this.speedEl = document.getElementById('speed');
-        this.hpEl = document.getElementById('hp');
-        this.hpFillEl = document.getElementById('hp-fill');
-        this.enemiesEl = document.getElementById('enemies');
-        this.lockEl = document.getElementById('locks');
-        this.cdEl = document.getElementById('cooldown');
-        this.waveEl = document.getElementById('wave');
-        this.waveStatusEl = document.getElementById('wave-status');
+        this.hud = new HudManager();
         this.waveBanner = document.getElementById('wave-banner');
-        this.boostFillEl = document.getElementById('boost-fill');
-        this.boostTextEl = document.getElementById('boost-text');
 
         this.enemyOverlay = document.getElementById('enemy-overlay');
         this.leadOverlay = document.getElementById('lead-overlay');
@@ -132,12 +125,22 @@ export class Game {
                 (Math.random() - 0.5) * Math.PI
             ));
             for (const a of field.asteroids) {
-                a.mesh.position.sub(center).applyQuaternion(tilt).add(center);
+                a.position.sub(center).applyQuaternion(tilt).add(center);
             }
+            field.refreshAllMatrices();
             scene.add(field.group);
             this.asteroidFields.push(field);
         }
         this.asteroids = this.asteroidFields[0];
+
+        // Cache the flat asteroid list once — it never changes after world build.
+        this._allAsteroids = [];
+        for (const f of this.asteroidFields) {
+            for (const a of f.asteroids) this._allAsteroids.push(a);
+        }
+        // Build a static obstacle grid once. Cell sized to roughly cover the largest asteroid.
+        this._obstacleGrid = new SpatialGrid(120);
+        this._obstacleGrid.addBodies(this._allAsteroids);
 
         this.starfield = new Starfield({ count: 4000, radius: 5000 });
         scene.add(this.starfield.points);
@@ -158,7 +161,8 @@ export class Game {
 
         for (const f of this.asteroidFields) this.collisions.addBodies(f.asteroids);
 
-        this.entities.push(this.ship, ...this.asteroidFields);
+        // entities kept for potential future use; main loop drives ship/asteroids explicitly.
+        this.entities.push(this.ship);
     }
 
     start() {
@@ -184,7 +188,7 @@ export class Game {
         }
 
         if (!this.running) {
-            for (const f of this.asteroidFields) f.update(dt);
+            for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
             this.ship.object.rotation.y += dt * 0.15;
             this.chaseCamera.update(dt);
             this.sceneManager.render();
@@ -193,19 +197,22 @@ export class Game {
         }
 
         this.shipController.update(dt);
-        for (const e of this.entities) e.update?.(dt);
+        this.ship.update(dt);
+        for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
 
         this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat);
         for (const enemy of this.enemies) {
             if (enemy.alive) enemy.updateTrail();
         }
 
-        const obstacles = this.asteroidFields.flatMap(f => f.asteroids);
+        const obstacles = this._allAsteroids;
+        const obstacleGrid = this._obstacleGrid;
         const hpBefore = this.ship.hp;
         this.combat.update(dt, {
             player: this.ship,
             enemies: this.enemies,
             obstacles,
+            obstacleGrid,
         });
         if (this.ship.alive && this.ship.hp < hpBefore) {
             const damage = hpBefore - this.ship.hp;
@@ -219,6 +226,7 @@ export class Game {
             player: this.ship,
             enemies: this.enemies,
             obstacles,
+            obstacleGrid,
             camera: this.sceneManager.camera,
             isLockHeld,
             justReleased,
@@ -271,47 +279,13 @@ export class Game {
     };
 
     _updateHud() {
-        if (this.speedEl) this.speedEl.textContent = this.ship.velocity.length().toFixed(1);
-        const hp = Math.max(0, Math.round(this.ship.hp));
-        if (this.hpEl) this.hpEl.textContent = hp;
-        if (this.hpFillEl) {
-            const ratio = Math.max(0, Math.min(1, this.ship.hp / this.ship.maxHp));
-            this.hpFillEl.style.width = (ratio * 100) + '%';
-            this.hpFillEl.classList.toggle('crit', ratio <= 0.25);
-            this.hpFillEl.classList.toggle('warn', ratio > 0.25 && ratio <= 0.55);
-        }
-        if (this.enemiesEl) this.enemiesEl.textContent = this.enemies.length;
-        const status = this.missiles.getStatus();
-        if (this.lockEl) this.lockEl.textContent = status.locked;
-        if (this.cdEl) this.cdEl.textContent = status.cooldown > 0 ? status.cooldown.toFixed(1) + 's' : 'prêt';
-
-        const boost = this.shipController.getBoostStatus();
-        if (this.boostFillEl) {
-            this.boostFillEl.style.width = (boost.ratio * 100) + '%';
-            this.boostFillEl.classList.toggle('active', boost.active);
-            this.boostFillEl.classList.toggle('low', !boost.active && boost.ratio < 0.25);
-        }
-        if (this.boostTextEl) {
-            this.boostTextEl.textContent = boost.charge.toFixed(1) + 's';
-        }
-
-        const w = this.waveManager.getStatus();
-        if (this.waveEl) this.waveEl.textContent = w.wave || '–';
-        if (this.waveStatusEl) {
-            this.waveStatusEl.textContent = w.state === 'intermission'
-                ? `prochaine dans ${w.countdown.toFixed(1)}s`
-                : `${this.enemies.length} en vol`;
-        }
-
-        const buffsEl = document.getElementById('buffs');
-        if (buffsEl) {
-            const buffs = [];
-            if (this.ship.shieldTime > 0) buffs.push(`<span style="color:#88ccff">Bouclier ${this.ship.shieldTime.toFixed(1)}s</span>`);
-            if (this.ship.overchargeTime > 0) buffs.push(`<span style="color:#ff7788">Surcharge ${this.ship.overchargeTime.toFixed(1)}s</span>`);
-            if (this.ship.rapidTime > 0) buffs.push(`<span style="color:#ffeeaa">Tir rapide ${this.ship.rapidTime.toFixed(1)}s</span>`);
-            buffsEl.innerHTML = buffs.join(' &nbsp;|&nbsp; ');
-            buffsEl.style.display = buffs.length ? 'block' : 'none';
-        }
+        this.hud.update({
+            ship: this.ship,
+            enemies: this.enemies,
+            missileStatus: this.missiles.getStatus(),
+            boost: this.shipController.getBoostStatus(),
+            wave: this.waveManager.getStatus(),
+        });
     }
 
     _updateEnemyMarkers() {

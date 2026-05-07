@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TrailLine } from '../effects/TrailLine.js';
 
 const FORWARD = new THREE.Vector3(0, 0, -1);
 
@@ -77,50 +78,21 @@ export class Ship {
         this._tmpVec = new THREE.Vector3();
 
         this.trailLength = 112;
-        const trailPos = new Float32Array(this.trailLength * 3);
-        const trailCol = new Float32Array(this.trailLength * 3);
-        for (let i = 0; i < this.trailLength; i++) {
-            const t = 1 - i / this.trailLength;
-            trailCol[i * 3 + 0] = 0.2 * t * t * t;
-            trailCol[i * 3 + 1] = 1.0 * t;
-            trailCol[i * 3 + 2] = 0.4 * t * t;
-        }
-        const trailGeo = new THREE.BufferGeometry();
-        trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
-        trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 3));
-        const trailMat = new THREE.LineBasicMaterial({
-            vertexColors: true,
-            transparent: true,
+        this._trail = new TrailLine({
+            length: this.trailLength,
             opacity: 0.85,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
+            gradient: (t) => [0.2 * t * t * t, 1.0 * t, 0.4 * t * t],
         });
-        this.trail = new THREE.Line(trailGeo, trailMat);
-        this.trail.frustumCulled = false;
-        this._trailInit = false;
+        this.trail = this._trail.line;
     }
 
     _updateTrail() {
-        const arr = this.trail.geometry.attributes.position.array;
         const p = this.object.position;
-        if (!this._trailInit) {
-            for (let i = 0; i < arr.length; i += 3) {
-                arr[i] = p.x; arr[i + 1] = p.y; arr[i + 2] = p.z;
-            }
-            this._trailInit = true;
-        } else {
-            for (let i = arr.length - 3; i >= 3; i -= 3) {
-                arr[i] = arr[i - 3];
-                arr[i + 1] = arr[i - 2];
-                arr[i + 2] = arr[i - 1];
-            }
-            arr[0] = p.x; arr[1] = p.y; arr[2] = p.z;
-        }
-        this.trail.geometry.attributes.position.needsUpdate = true;
+        this._trail.push(p.x, p.y, p.z);
     }
 
     resetTrail() {
-        this._trailInit = false;
+        this._trail.reset();
     }
 
     takeDamage(d) {

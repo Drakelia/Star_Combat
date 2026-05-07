@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TrailLine } from '../effects/TrailLine.js';
 
 export class Enemy {
     constructor({ position = new THREE.Vector3(), hp = 30 } = {}) {
@@ -55,31 +56,14 @@ export class Enemy {
         this.preferredDist = 50 + Math.random() * 60;
 
         this.trailLength = 240;
-        const trailPos = new Float32Array(this.trailLength * 3);
-        const trailCol = new Float32Array(this.trailLength * 3);
-        for (let i = 0; i < this.trailLength; i++) {
-            const t = 1 - i / this.trailLength;
-            trailCol[i * 3 + 0] = 1.0 * t;
-            trailCol[i * 3 + 1] = 0.25 * t * t;
-            trailCol[i * 3 + 2] = 0.2 * t * t * t;
-        }
-        const trailGeo = new THREE.BufferGeometry();
-        trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
-        trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 3));
-        for (let i = 0; i < this.trailLength; i++) {
-            trailPos[i * 3 + 0] = position.x;
-            trailPos[i * 3 + 1] = position.y;
-            trailPos[i * 3 + 2] = position.z;
-        }
-        const trailMat = new THREE.LineBasicMaterial({
-            vertexColors: true,
-            transparent: true,
+        this._trail = new TrailLine({
+            length: this.trailLength,
             opacity: 0.8,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
+            gradient: (t) => [1.0 * t, 0.25 * t * t, 0.2 * t * t * t],
         });
-        this.trail = new THREE.Line(trailGeo, trailMat);
-        this.trail.frustumCulled = false;
+        this.trail = this._trail.line;
+        // Seed buffer at spawn position so the trail doesn't appear from origin.
+        this._trail.push(position.x, position.y, position.z);
     }
 
     get position() {
@@ -92,21 +76,11 @@ export class Enemy {
     }
 
     updateTrail() {
-        const arr = this.trail.geometry.attributes.position.array;
-        for (let i = arr.length - 3; i >= 3; i -= 3) {
-            arr[i] = arr[i - 3];
-            arr[i + 1] = arr[i - 2];
-            arr[i + 2] = arr[i - 1];
-        }
         const p = this.object.position;
-        arr[0] = p.x; arr[1] = p.y; arr[2] = p.z;
-        this.trail.geometry.attributes.position.needsUpdate = true;
+        this._trail.push(p.x, p.y, p.z);
     }
 
     dispose() {
-        if (this.trail) {
-            this.trail.geometry.dispose();
-            this.trail.material.dispose();
-        }
+        if (this._trail) this._trail.dispose();
     }
 }

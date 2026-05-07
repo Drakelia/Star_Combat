@@ -80,7 +80,7 @@ export class MissileSystem {
         return m;
     }
 
-    update(dt, { player, enemies, obstacles, camera, isLockHeld, justReleased }) {
+    update(dt, { player, enemies, obstacles, obstacleGrid, camera, isLockHeld, justReleased }) {
         if (this.cooldown > 0) this.cooldown -= dt;
 
         if (justReleased && this.cooldown <= 0) {
@@ -130,15 +130,20 @@ export class MissileSystem {
                     }
                 }
 
-                if (m.alive && obstacles) {
-                    for (const o of obstacles) {
-                        const r = o.radius + m.radius * 0.6;
-                        const distSq = this._segmentDistSq(m.prevPosition, m.position, o.position);
-                        if (distSq < r * r) {
-                            this._detonate(m);
-                            this.effects?.spawn(m.position, { count: 50, scale: 0.8, speed: 24, lifetime: 0.8 });
-                            this.sounds?.explosion({ volume: 0.4 });
-                            break;
+                if (m.alive) {
+                    const candidates = obstacleGrid
+                        ? obstacleGrid.querySegment(m.prevPosition, m.position, m.radius + 32)
+                        : obstacles;
+                    if (candidates) {
+                        for (const o of candidates) {
+                            const r = o.radius + m.radius * 0.6;
+                            const distSq = this._segmentDistSq(m.prevPosition, m.position, o.position);
+                            if (distSq < r * r) {
+                                this._detonate(m);
+                                this.effects?.spawn(m.position, { count: 50, scale: 0.8, speed: 24, lifetime: 0.8 });
+                                this.sounds?.explosion({ volume: 0.4 });
+                                break;
+                            }
                         }
                     }
                 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Asteroid } from './Asteroid.js';
+import { Asteroid, getAsteroidGeometryPool, makeAsteroidMaterial } from './Asteroid.js';
 
 const SHAPES = ['ring', 'sphere', 'cluster', 'stream', 'disc'];
 
@@ -19,6 +19,7 @@ export class AsteroidField {
         this.group = new THREE.Group();
         this.asteroids = [];
         this.shape = shape;
+        this.center = center.clone();
 
         const streamAxis = axis || new THREE.Vector3(
             Math.random() - 0.5,
@@ -43,9 +44,36 @@ export class AsteroidField {
             const baseRadius = 2 + Math.random() * 6;
             const radius = isBig ? baseRadius * (3 + Math.random() * 2) : baseRadius;
             const a = new Asteroid({ radius, position: pos, seed: Math.random() });
-            this.group.add(a.mesh);
             this.asteroids.push(a);
         }
+
+        // Build instanced meshes: one per geometry variant (shared material).
+        const geoPool = getAsteroidGeometryPool();
+        this._material = makeAsteroidMaterial();
+        this._instances = [];
+
+        // Bucket asteroids by their assigned geometry.
+        const buckets = new Array(geoPool.length).fill(null).map(() => []);
+        for (const a of this.asteroids) buckets[a.geoIndex].push(a);
+
+        for (let g = 0; g < buckets.length; g++) {
+            const list = buckets[g];
+            if (list.length === 0) continue;
+            const inst = new THREE.InstancedMesh(geoPool[g], this._material, list.length);
+            inst.frustumCulled = true;
+            inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            for (let k = 0; k < list.length; k++) {
+                const a = list[k];
+                a._instMesh = inst;
+                a._instIdx = k;
+                inst.setMatrixAt(k, a.composeMatrix());
+            }
+            inst.instanceMatrix.needsUpdate = true;
+            this.group.add(inst);
+            this._instances.push(inst);
+        }
+
+        this._tmpVec = new THREE.Vector3();
     }
 
     _samplePosition(shape, center, inner, outer, height, scale, axis, perp1, perp2) {
@@ -94,8 +122,33 @@ export class AsteroidField {
         return out.add(center);
     }
 
-    update(dt) {
-        for (const a of this.asteroids) a.update(dt);
+    /**
+     * Update with optional culling: only asteroids near `focusPos` (within `range`) spin.
+     * Keeps cost bounded regardless of total field count.
+     */
+    update(dt, focusPos = null, range = 600) {
+        const range2 = range * range;
+        const dirtyMeshes = new Set();
+        for (const a of this.asteroids) {
+            if (focusPos) {
+                const dx = a.position.x - focusPos.x;
+                const dy = a.position.y - focusPos.y;
+                const dz = a.position.z - focusPos.z;
+                if (dx * dx + dy * dy + dz * dz > range2) continue;
+            }
+            a.update(dt);
+            a._instMesh.setMatrixAt(a._instIdx, a.composeMatrix());
+            dirtyMeshes.add(a._instMesh);
+        }
+        for (const mesh of dirtyMeshes) mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    /** Re-upload positions/rotations for all asteroids (used after world tilt). */
+    refreshAllMatrices() {
+        for (const a of this.asteroids) {
+            a._instMesh.setMatrixAt(a._instIdx, a.composeMatrix());
+        }
+        for (const inst of this._instances) inst.instanceMatrix.needsUpdate = true;
     }
 }
 

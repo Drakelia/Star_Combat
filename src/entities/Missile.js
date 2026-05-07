@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TrailLine } from '../effects/TrailLine.js';
 
 const FORWARD_Z = new THREE.Vector3(0, 0, 1);
 
@@ -65,29 +66,13 @@ export class Missile {
         this.mesh.add(this.flame);
 
         this.trailLength = trailLength;
-        const trailPos = new Float32Array(trailLength * 3);
-        const trailCol = new Float32Array(trailLength * 3);
-        for (let i = 0; i < trailLength; i++) {
-            trailPos[i * 3 + 0] = position.x;
-            trailPos[i * 3 + 1] = position.y;
-            trailPos[i * 3 + 2] = position.z;
-            const t = 1 - i / trailLength;
-            trailCol[i * 3 + 0] = 0.55 * t * t;
-            trailCol[i * 3 + 1] = 0.35 * t * t * t;
-            trailCol[i * 3 + 2] = 1.0 * t;
-        }
-        const trailGeo = new THREE.BufferGeometry();
-        trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
-        trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 3));
-        const trailMat = new THREE.LineBasicMaterial({
-            vertexColors: true,
-            transparent: true,
+        this._trail = new TrailLine({
+            length: trailLength,
             opacity: 0.95,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
+            gradient: (t) => [0.55 * t * t, 0.35 * t * t * t, 1.0 * t],
         });
-        this.trail = new THREE.Line(trailGeo, trailMat);
-        this.trail.frustumCulled = false;
+        this._trail.push(position.x, position.y, position.z);
+        this.trail = this._trail.line;
         scene.add(this.trail);
 
         this._tmpA = new THREE.Vector3();
@@ -144,21 +129,13 @@ export class Missile {
         const flicker = 0.7 + Math.random() * 0.6;
         this.flame.scale.set(flicker, flicker, 0.8 + Math.random() * 0.6);
 
-        const arr = this.trail.geometry.attributes.position.array;
-        for (let i = arr.length - 3; i >= 3; i -= 3) {
-            arr[i] = arr[i - 3];
-            arr[i + 1] = arr[i - 2];
-            arr[i + 2] = arr[i - 1];
-        }
-        arr[0] = this.mesh.position.x;
-        arr[1] = this.mesh.position.y;
-        arr[2] = this.mesh.position.z;
-        this.trail.geometry.attributes.position.needsUpdate = true;
+        this._trail.push(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
     }
 
     detachTrail() {
         const trail = this.trail;
         this.trail = null;
+        this._trail = null;
         return trail;
     }
 
@@ -168,10 +145,9 @@ export class Missile {
         this.mesh.material.dispose();
         this.flame.geometry.dispose();
         this.flame.material.dispose();
-        if (this.trail) {
+        if (this._trail) {
             this.scene.remove(this.trail);
-            this.trail.geometry.dispose();
-            this.trail.material.dispose();
+            this._trail.dispose();
         }
     }
 }

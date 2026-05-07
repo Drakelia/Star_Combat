@@ -23,7 +23,7 @@ export class CombatSystem {
         }
     }
 
-    update(dt, { player, enemies, obstacles }) {
+    update(dt, { player, enemies, obstacles, obstacleGrid }) {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.update(dt);
@@ -61,12 +61,17 @@ export class CombatSystem {
                 }
             }
 
-            if (p.alive && obstacles) {
-                for (const o of obstacles) {
-                    if (this._hits(p, o.position, o.radius)) {
-                        p.alive = false;
-                        this.effects?.spark(p.position);
-                        break;
+            if (p.alive) {
+                const candidates = obstacleGrid
+                    ? obstacleGrid.queryPoint(p.position, p.radius + 32)
+                    : obstacles;
+                if (candidates) {
+                    for (const o of candidates) {
+                        if (this._hits(p, o.position, o.radius)) {
+                            p.alive = false;
+                            this.effects?.spark(p.position);
+                            break;
+                        }
                     }
                 }
             }
