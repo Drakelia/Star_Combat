@@ -4,7 +4,7 @@ import { InputManager } from './input/InputManager.js';
 import { MouseAim } from './input/MouseAim.js';
 import { Ship } from './entities/Ship.js';
 import { Starfield } from './entities/Starfield.js';
-import { AsteroidField } from './entities/AsteroidField.js';
+import { AsteroidField, ASTEROID_FIELD_SHAPES } from './entities/AsteroidField.js';
 import { ShipController } from './controls/ShipController.js';
 import { ChaseCamera } from './scene/ChaseCamera.js';
 import { CollisionSystem } from './physics/CollisionSystem.js';
@@ -76,26 +76,48 @@ export class Game {
         scene.add(fillLight);
 
         this.asteroidFields = [];
-        const fieldCount = 10;
-        const worldSpread = 1400;
+        const fieldCount = 40;
+        const worldSpread = 2800;
         for (let i = 0; i < fieldCount; i++) {
-            const angle = (i / fieldCount) * Math.PI * 2 + Math.random() * 0.4;
+            const u = Math.random();
+            const v = Math.random();
+            const theta = u * Math.PI * 2;
+            const phi = Math.acos(2 * v - 1);
             const dist = 300 + Math.random() * worldSpread;
             const center = new THREE.Vector3(
-                Math.cos(angle) * dist,
-                (Math.random() - 0.5) * 200,
-                Math.sin(angle) * dist
+                Math.sin(phi) * Math.cos(theta) * dist,
+                Math.cos(phi) * dist,
+                Math.sin(phi) * Math.sin(theta) * dist
             );
+            const shape = ASTEROID_FIELD_SHAPES[Math.floor(Math.random() * ASTEROID_FIELD_SHAPES.length)];
             const inner = 80 + Math.random() * 80;
             const outer = inner + 140 + Math.random() * 160;
+            const heightByShape = {
+                ring: 250 + Math.random() * 200,
+                disc: 60 + Math.random() * 60,
+                sphere: 0,
+                cluster: 0,
+                stream: 0,
+            };
             const field = new AsteroidField({
                 count: 70 + Math.floor(Math.random() * 40),
                 center,
                 innerRadius: inner,
                 outerRadius: outer,
-                height: 40 + Math.random() * 40,
+                height: heightByShape[shape],
                 bigChance: 0.08,
+                shape,
+                strayChance: 0.06,
+                strayDistance: 2 + Math.random() * 1.5,
             });
+            const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+                (Math.random() - 0.5) * Math.PI,
+                Math.random() * Math.PI * 2,
+                (Math.random() - 0.5) * Math.PI
+            ));
+            for (const a of field.asteroids) {
+                a.mesh.position.sub(center).applyQuaternion(tilt).add(center);
+            }
             scene.add(field.group);
             this.asteroidFields.push(field);
         }
