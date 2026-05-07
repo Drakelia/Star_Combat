@@ -30,15 +30,22 @@ export class Explosion {
 
         const positions = new Float32Array(count * 3);
         this.velocities = new Float32Array(count * 3);
+        this.drags = new Float32Array(count);
         for (let i = 0; i < count; i++) {
             positions[i * 3 + 0] = position.x;
             positions[i * 3 + 1] = position.y;
             positions[i * 3 + 2] = position.z;
             randomUnit(_tmp);
-            const s = (0.4 + Math.random() * 0.6) * speed * scale;
+            const r = Math.random();
+            let factor;
+            if (r < 0.15) factor = 1.8 + Math.random() * 1.6;
+            else if (r < 0.55) factor = 0.9 + Math.random() * 1.0;
+            else factor = 0.25 + Math.random() * 0.6;
+            const s = factor * speed * scale;
             this.velocities[i * 3 + 0] = _tmp.x * s;
             this.velocities[i * 3 + 1] = _tmp.y * s;
             this.velocities[i * 3 + 2] = _tmp.z * s;
+            this.drags[i] = 0.4 + Math.pow(Math.random(), 1.7) * 3.0;
         }
 
         const geo = new THREE.BufferGeometry();
@@ -80,16 +87,17 @@ export class Explosion {
             return;
         }
 
-        const drag = Math.exp(-1.6 * dt);
         const pos = this.points.geometry.attributes.position.array;
         const vel = this.velocities;
-        for (let i = 0; i < pos.length; i += 3) {
+        const drags = this.drags;
+        for (let i = 0, j = 0; i < pos.length; i += 3, j++) {
             pos[i + 0] += vel[i + 0] * dt;
             pos[i + 1] += vel[i + 1] * dt;
             pos[i + 2] += vel[i + 2] * dt;
-            vel[i + 0] *= drag;
-            vel[i + 1] *= drag;
-            vel[i + 2] *= drag;
+            const d = Math.exp(-drags[j] * dt);
+            vel[i + 0] *= d;
+            vel[i + 1] *= d;
+            vel[i + 2] *= d;
         }
         this.points.geometry.attributes.position.needsUpdate = true;
         this.points.material.opacity = 1 - t;

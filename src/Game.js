@@ -196,11 +196,17 @@ export class Game {
         }
 
         const obstacles = this.asteroidFields.flatMap(f => f.asteroids);
+        const hpBefore = this.ship.hp;
         this.combat.update(dt, {
             player: this.ship,
             enemies: this.enemies,
             obstacles,
         });
+        if (this.ship.alive && this.ship.hp < hpBefore) {
+            const damage = hpBefore - this.ship.hp;
+            const amp = Math.min(1.4, 0.35 + damage * 0.06);
+            this.chaseCamera.shake(amp, 0.012 + damage * 0.001, 0.35);
+        }
 
         const isLockHeld = !!(this.mouse && this.mouse.locking);
         const justReleased = this._wasLockHeld && !isLockHeld;
@@ -222,6 +228,11 @@ export class Game {
             const e = this.enemies[i];
             if (!e.alive) {
                 this.stats.kills += 1;
+                const dist = e.object.position.distanceTo(this.ship.object.position);
+                if (dist < 120) {
+                    const k = 1 - dist / 120;
+                    this.chaseCamera.shake(0.4 + k * 1.4, 0.008 + k * 0.018, 0.3 + k * 0.3);
+                }
                 this.powerups.onEnemyKilled(e.object.position);
                 this.sceneManager.scene.remove(e.object);
                 if (e.trail) this.sceneManager.scene.remove(e.trail);
