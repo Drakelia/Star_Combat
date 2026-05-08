@@ -502,7 +502,8 @@ export class Game {
 
         const camFwd = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
 
-        while (this._leadPool.length < this.enemies.length) {
+        // Pool toujours d'1 élément : seul le lead de la cible lockée est tracé.
+        if (this._leadPool.length === 0) {
             const dot = document.createElement('div');
             dot.className = 'lead-dot';
             const line = document.createElement('div');
@@ -512,15 +513,21 @@ export class Game {
             this._leadPool.push({ dot, line });
         }
 
-        for (let i = 0; i < this._leadPool.length; i++) {
-            const item = this._leadPool[i];
-            const enemy = i < this.enemies.length ? this.enemies[i] : null;
+        // Réinitialise leadScreen — utilisé par l'aim-assist.
+        this._leadScreen = null;
+
+        const enemy = this.targetLock ? this.targetLock.target : null;
+        const item = this._leadPool[0];
+
+        // Une seule itération : la cible lockée. Conserve la structure
+        // existante de calcul (interception balistique + projection NDC).
+        for (let pass = 0; pass < 1; pass++) {
             if (!enemy || !enemy.alive) {
                 if (item.dot.style.display !== 'none') {
                     item.dot.style.display = 'none';
                     item.line.style.display = 'none';
                 }
-                continue;
+                break;
             }
 
             const ePos = enemy.object.position;
@@ -555,7 +562,7 @@ export class Game {
             if (t <= 0 || t > maxT) {
                 item.dot.style.display = 'none';
                 item.line.style.display = 'none';
-                continue;
+                break;
             }
 
             const leadX = ePos.x + evx * t;
@@ -605,7 +612,7 @@ export class Game {
             if (fwdLead <= 0.5 || fwdE <= 0.5) {
                 item.dot.style.display = 'none';
                 item.line.style.display = 'none';
-                continue;
+                break;
             }
 
             const ndcLead = this._tmpNdc.set(aimX, aimY, aimZ).project(cam);
@@ -630,6 +637,13 @@ export class Game {
             } else {
                 item.line.style.display = 'none';
             }
+
+            this._leadScreen = { x: lx, y: ly };
+        }
+
+        // Pousse vers le MouseAim la position d'attraction (ou null).
+        if (this.mouse && this.mouse.setMagnet) {
+            this.mouse.setMagnet(this._leadScreen);
         }
     }
 
