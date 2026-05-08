@@ -18,6 +18,7 @@ export class HudManager {
         this.buffsEl = document.getElementById('buffs');
         this.dmgLowEl = document.getElementById('damage-low');
         this.dmgHitEl = document.getElementById('damage-hit');
+        this.boostVignetteEl = document.getElementById('boost-vignette');
 
         this._prevHp = null;
         this._hitFlashEnd = 0;
@@ -43,6 +44,7 @@ export class HudManager {
             dmgLowWarn: null,
             dmgLowCrit: null,
             dmgHitBucket: null,
+            boostVignetteActive: null,
         };
     }
 
@@ -92,6 +94,7 @@ export class HudManager {
         this._toggleClass(this.boostFillEl, 'active', 'boostActive', boost.active);
         this._toggleClass(this.boostFillEl, 'low', 'boostLow', !boost.active && boost.ratio < 0.25);
         this._setText(this.boostTextEl, 'boostText', boost.charge.toFixed(1) + 's');
+        this._toggleClass(this.boostVignetteEl, 'active', 'boostVignetteActive', boost.active);
 
         this._setText(this.waveEl, 'wave', String(wave.wave || '–'));
         const waveStatusText = wave.state === 'intermission'

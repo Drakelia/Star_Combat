@@ -47,6 +47,7 @@ export class Ship {
 
         this.velocity = new THREE.Vector3();
         this.thrust = 0;
+        this.boosting = false;
 
         this.maxHp = 100;
         this.hp = 100;
@@ -146,9 +147,15 @@ export class Ship {
         if (this.rapidTime > 0) this.rapidTime = Math.max(0, this.rapidTime - dt);
         if (this.overchargeTime > 0) this.overchargeTime = Math.max(0, this.overchargeTime - dt);
 
-        const target = 0.4 + this.thrust * 1.6;
-        this.thruster.scale.z += (target - this.thruster.scale.z) * Math.min(1, dt * 8);
-        this.thruster.material.color.setHSL(0.55, 1, 0.5 + this.thrust * 0.3);
+        const boostBoost = this.boosting ? 2.6 : 0;
+        const target = 0.4 + this.thrust * 1.6 + boostBoost;
+        this.thruster.scale.z += (target - this.thruster.scale.z) * Math.min(1, dt * 12);
+        const widen = this.boosting ? 1 + 0.18 * (0.5 + 0.5 * Math.sin(performance.now() * 0.03)) : 1;
+        this.thruster.scale.x = widen;
+        this.thruster.scale.y = widen;
+        const hue = this.boosting ? 0.08 : 0.55;
+        const lum = 0.5 + this.thrust * 0.3 + (this.boosting ? 0.2 : 0);
+        this.thruster.material.color.setHSL(hue, 1, lum);
 
         const shieldOpacity = this.shieldTime > 0 ? (0.18 + Math.sin(performance.now() * 0.01) * 0.06) : 0;
         this.shieldMesh.material.opacity = shieldOpacity;

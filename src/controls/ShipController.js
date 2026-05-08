@@ -33,7 +33,6 @@ export class ShipController {
         this._forward = new THREE.Vector3();
         this._right = new THREE.Vector3();
         this._up = new THREE.Vector3();
-        this._sideVel = new THREE.Vector3();
         this._axisX = new THREE.Vector3(1, 0, 0);
         this._axisY = new THREE.Vector3(0, 1, 0);
         this._axisZ = new THREE.Vector3(0, 0, 1);
@@ -109,29 +108,34 @@ export class ShipController {
         this._right.set(1, 0, 0).applyQuaternion(obj.quaternion);
         this._up.set(0, 1, 0).applyQuaternion(obj.quaternion);
 
+        if (boosting) {
+            const decay = Math.exp(-this.boostLateralBrake * dt);
+            const fwdSpeed = ship.velocity.dot(this._forward);
+            const rightSpeed = ship.velocity.dot(this._right);
+            const upSpeed = ship.velocity.dot(this._up);
+            const newFwd = thrustInput * fwdSpeed > 0 ? fwdSpeed : fwdSpeed * decay;
+            const newRight = strafeInput * rightSpeed > 0 ? rightSpeed : rightSpeed * decay;
+            const newUp = verticalInput * upSpeed > 0 ? upSpeed : upSpeed * decay;
+            ship.velocity.set(0, 0, 0)
+                .addScaledVector(this._forward, newFwd)
+                .addScaledVector(this._right, newRight)
+                .addScaledVector(this._up, newUp);
+        }
+
         if (thrustInput !== 0) {
             ship.velocity.addScaledVector(this._forward, this.acceleration * accelMul * thrustInput * dt);
         }
         if (strafeInput !== 0) {
-            const strafeMul = boosting ? 0.4 : 1;
+            const strafeMul = boosting ? this.boostMultiplier : 1;
             ship.velocity.addScaledVector(this._right, this.strafeAcceleration * strafeMul * strafeInput * dt);
         }
         if (verticalInput !== 0) {
-            const strafeMul = boosting ? 0.4 : 1;
+            const strafeMul = boosting ? this.boostMultiplier : 1;
             ship.velocity.addScaledVector(this._up, this.strafeAcceleration * strafeMul * verticalInput * dt);
         }
 
         if (braking) {
             ship.velocity.addScaledVector(ship.velocity, -this.brakeStrength * dt);
-        }
-
-        if (boosting) {
-            const fwdSpeed = ship.velocity.dot(this._forward);
-            this._sideVel.copy(ship.velocity).addScaledVector(this._forward, -fwdSpeed);
-            const decay = Math.exp(-this.boostLateralBrake * dt);
-            this._sideVel.multiplyScalar(decay);
-            const dampedFwd = fwdSpeed >= 0 ? fwdSpeed : fwdSpeed * decay;
-            ship.velocity.copy(this._sideVel).addScaledVector(this._forward, dampedFwd);
         }
 
         ship.velocity.multiplyScalar(1 - this.drag * dt);
@@ -141,5 +145,6 @@ export class ShipController {
         if (speed > cap) ship.velocity.multiplyScalar(cap / speed);
 
         ship.thrust = Math.max(0, thrustInput) * accelMul;
+        ship.boosting = boosting;
     }
 }
