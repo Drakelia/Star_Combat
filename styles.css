@@ -257,26 +257,15 @@ html, body {
     pointer-events: none;
     z-index: 7;
     opacity: 0;
-    background:
-        radial-gradient(ellipse 75% 110% at center,
-            transparent 55%,
-            rgba(120, 220, 255, 0.10) 80%,
-            rgba(160, 240, 255, 0.32) 100%),
-        linear-gradient(90deg,
-            rgba(160, 240, 255, 0.18) 0%,
-            transparent 12%,
-            transparent 88%,
-            rgba(160, 240, 255, 0.18) 100%);
-    transition: opacity 0.12s ease-out;
+    background: radial-gradient(ellipse 90% 130% at center,
+        transparent 70%,
+        rgba(120, 220, 255, 0.08) 92%,
+        rgba(160, 240, 255, 0.18) 100%);
+    transition: opacity 0.18s ease-out;
     mix-blend-mode: screen;
 }
 #boost-vignette.active {
     opacity: 1;
-    animation: boost-pulse 0.32s ease-in-out infinite;
-}
-@keyframes boost-pulse {
-    0%, 100% { opacity: 0.78; }
-    50%      { opacity: 1.0; }
 }
 
 #enemy-overlay {

@@ -175,6 +175,7 @@ export class Game {
         this.ship.object.position.set(200, 40, 200);
         scene.add(this.ship.object);
         scene.add(this.ship.trail);
+        scene.add(this.ship.boostTrail);
 
         this.shipController = new ShipController(this.ship, this.input, {
             combat: this.combat,
@@ -232,6 +233,7 @@ export class Game {
 
         this.shipController.update(dt);
         this.ship.update(dt);
+        this.chaseCamera.setBoosting(this.ship.boosting);
         for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
 
         this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat, this.missiles, this._obstacleGrid);

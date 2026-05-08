@@ -104,15 +104,30 @@ export class Ship {
             gradient: (t) => [0.2 * t * t * t, 1.0 * t, 0.4 * t * t],
         });
         this.trail = this._trail.line;
+
+        // Trail "halo" superposé qui n'apparaît qu'en boost. Plus long, plus
+        // lumineux, palette chaude — donne l'impression d'une trainée élargie.
+        this.boostTrailLength = 200;
+        this._boostTrail = new TrailLine({
+            length: this.boostTrailLength,
+            opacity: 0,
+            gradient: (t) => [1.0 * t, 0.85 * t * t, 0.35 * t * t * t],
+        });
+        this.boostTrail = this._boostTrail.line;
+        this._boostTrailOpacity = 0;
     }
 
     _updateTrail() {
         const p = this.object.position;
         this._trail.push(p.x, p.y, p.z);
+        this._boostTrail.push(p.x, p.y, p.z);
     }
 
     resetTrail() {
         this._trail.reset();
+        this._boostTrail.reset();
+        this._boostTrailOpacity = 0;
+        this._boostTrail.setOpacity(0);
     }
 
     /**
@@ -229,6 +244,11 @@ export class Ship {
         const rsOp = baseOp + flash;
         this._rechargeShieldMesh.material.opacity = rsOp;
         this._rechargeShieldMesh.visible = rsOp > 0.01;
+
+        const targetBoostOp = this.boosting ? 0.9 : 0;
+        const lerpRate = this.boosting ? 12 : 4;
+        this._boostTrailOpacity += (targetBoostOp - this._boostTrailOpacity) * Math.min(1, dt * lerpRate);
+        this._boostTrail.setOpacity(this._boostTrailOpacity);
 
         this._updateTrail();
     }
