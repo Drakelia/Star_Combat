@@ -44,9 +44,16 @@ export class BossEnemy extends Enemy {
         this._tmpDir = new THREE.Vector3();
         this._tmpQuat = new THREE.Quaternion();
         this._tmpForward = new THREE.Vector3();
+        this._aimPoint = new THREE.Vector3();
         this._desiredQuat = new THREE.Quaternion();
         this._mat = new THREE.Matrix4();
         this._up = new THREE.Vector3(0, 1, 0);
+
+        // Vitesses des projectiles tirés par chaque type de tourelle. Doit
+        // rester en phase avec les `speed` passées dans _fireLaser/_fireSniper
+        // pour que le lead soit correct.
+        this._projSpeedLaser = 240;
+        this._projSpeedSniper = 200;
 
         // Laser sight pour les tourelles sniper, comme SniperEnemy.
         this.laserSight = this._buildLaserSight();
@@ -205,17 +212,43 @@ export class BossEnemy extends Enemy {
     }
 
     _tickTurret(turret, target, dt, combat, missileSystem) {
-        // Aim turret group at the player (world space).
-        target.object.getWorldPosition(this._tmpVec);
-        turret.group.lookAt(this._tmpVec);
-
         const tPos = target.object.position;
         const turretWorld = turret.group.getWorldPosition(this._tmpVec);
         const dist = turretWorld.distanceTo(tPos);
         if (dist > turret.range) {
             turret.charging = false;
             turret.chargeProgress = 0;
+            // Continue à viser le joueur même hors range pour que la rotation
+            // reste cohérente visuellement.
+            turret.group.lookAt(tPos);
             return;
+        }
+
+        // Lead : on vise où le joueur sera quand le tir arrivera. Sans ça les
+        // tourelles ne touchent jamais une cible en mouvement (cf. fighters /
+        // snipers dans EnemyAI._fireBasic / _fireSniperShot).
+        const tv = target.velocity;
+        if (turret.kind === 'sniper' && tv) {
+            const tFlight = Math.min(dist / this._projSpeedSniper, 3.0);
+            this._aimPoint.set(
+                tPos.x + tv.x * tFlight,
+                tPos.y + tv.y * tFlight,
+                tPos.z + tv.z * tFlight,
+            );
+            turret.group.lookAt(this._aimPoint);
+        } else if (turret.kind === 'laser' && tv) {
+            const tFlight = Math.min(dist / this._projSpeedLaser, 2.5);
+            // Lead partiel comme les fighters : laisse une fenêtre d'esquive.
+            const leadFactor = 0.7;
+            this._aimPoint.set(
+                tPos.x + tv.x * tFlight * leadFactor,
+                tPos.y + tv.y * tFlight * leadFactor,
+                tPos.z + tv.z * tFlight * leadFactor,
+            );
+            turret.group.lookAt(this._aimPoint);
+        } else {
+            // Missiles : homing → la direction initiale importe peu.
+            turret.group.lookAt(tPos);
         }
 
         if (turret.kind === 'laser') {
