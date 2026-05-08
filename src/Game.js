@@ -729,12 +729,7 @@ export class Game {
 
         for (const m of this.missiles.missiles) m.dispose();
         this.missiles.missiles.length = 0;
-        for (const [, lock] of this.missiles.locks) {
-            scene.remove(lock.marker);
-            lock.marker.geometry.dispose();
-            lock.marker.material.dispose();
-        }
-        this.missiles.locks.clear();
+        this.missiles.clearLocks();
         this.missiles.cooldown = 0;
         this.missiles.wasLocking = false;
 

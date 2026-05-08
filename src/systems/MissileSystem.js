@@ -27,9 +27,11 @@ export class MissileSystem {
         this.cooldown = 0;
         // Grace period : si la cible sort du cône, on conserve le progrès
         // de lock pendant `lingerGrace` secondes avant de le faire décroître.
-        // Permet de garder un lock en cours quand l'ennemi sort brièvement
-        // (esquive, passage derrière un astéroïde, etc.).
         this.lingerGrace = 1.0;
+        // Lock multi-tier : `progress` ∈ [0..maxTier]. Chaque entier
+        // franchi ajoute un missile à la salve (1 → 1 missile, 2 → 2, 3 → 3).
+        // Compatible avec le rapid-fire qui multiplie ensuite x3.
+        this.maxTier = 3;
         this.wasLocking = false;
         this.playerMissilesFired = 0;
 
@@ -88,6 +90,33 @@ export class MissileSystem {
         const m = new THREE.Mesh(geo, mat);
         m.renderOrder = 999;
         return m;
+    }
+
+    /**
+     * Met à jour la position/échelle/couleur d'un anneau d'un tier donné.
+     * `tierIdx` : 0 = anneau central, 1 = 2e couche, 2 = 3e couche.
+     * Le tier d'index `tierIdx` n'est visible que quand la cible a déjà
+     * acquis (tierIdx) lock(s) ; il se contracte de "très large" vers son
+     * rayon final pendant l'acquisition du tier (tierIdx + 1).
+     */
+    _updateRing(ring, enemy, camera, progress, tierIdx, dt) {
+        if (progress <= tierIdx + 0.02) {
+            if (ring.visible) ring.visible = false;
+            return;
+        }
+        ring.visible = true;
+        ring.position.copy(enemy.object.position);
+        if (camera) ring.lookAt(camera.position);
+        const acquired = progress >= tierIdx + 1;
+        const sub = Math.max(0, Math.min(1, progress - tierIdx));
+        ring.material.color.setHex(acquired ? 0xff3322 : 0xffaa22);
+        ring.material.opacity = acquired ? (0.95 - tierIdx * 0.08) : (0.5 + sub * 0.4);
+        const baseSize = enemy.radius + 1.2 + tierIdx * 0.7;
+        const animScale = acquired
+            ? baseSize
+            : baseSize * (1 + (1 - sub) * (1.5 - tierIdx * 0.3));
+        ring.scale.setScalar(animScale);
+        ring.rotation.z += dt * (acquired ? (3 - tierIdx) : 1) * (tierIdx % 2 === 0 ? 1 : -1);
     }
 
     update(dt, { player, enemies, obstacles, obstacleGrid, camera, isLockHeld, justReleased }) {
@@ -195,9 +224,6 @@ export class MissileSystem {
 
         const missilesReady = this.cooldown <= 0;
 
-        let lockedCount = 0;
-        for (const [, lock] of this.locks) if (lock.progress >= 1) lockedCount++;
-
         for (const enemy of enemies) {
             if (!enemy.alive) continue;
 
@@ -209,9 +235,15 @@ export class MissileSystem {
             let lock = this.locks.get(enemy);
             if (!lock) {
                 const marker = this._makeMarker();
+                const marker2 = this._makeMarker();
+                const marker3 = this._makeMarker();
                 marker.visible = false;
+                marker2.visible = false;
+                marker3.visible = false;
                 this.scene.add(marker);
-                lock = { progress: 0, marker, lingerTime: 0 };
+                this.scene.add(marker2);
+                this.scene.add(marker3);
+                lock = { progress: 0, marker, marker2, marker3, lingerTime: 0 };
                 this.locks.set(enemy, lock);
             }
 
@@ -219,63 +251,71 @@ export class MissileSystem {
                 lock.progress = 0;
             }
 
-            // Grace period : reset le compteur quand on est dans le cône,
-            // sinon il s'écoule. Tant qu'il est sous `lingerGrace`, le lock
-            // reste figé même hors cône.
             if (inCone) lock.lingerTime = 0;
             else lock.lingerTime += dt;
 
-            const canGain = missilesReady && isLocking && inCone && (lock.progress >= 1 || lockedCount < this.maxLocks);
+            const canGain = missilesReady && isLocking && inCone && lock.progress < this.maxTier;
             if (canGain) {
-                if (lock.progress < 1) {
-                    lock.progress = Math.min(1, lock.progress + dt * this.lockSpeed);
-                    if (lock.progress >= 1) lockedCount++;
-                }
+                lock.progress = Math.min(this.maxTier, lock.progress + dt * this.lockSpeed);
             } else if (!isLocking) {
                 lock.progress = Math.max(0, lock.progress - dt * this.unlockSpeed);
             } else if (!inCone && lock.lingerTime > this.lingerGrace) {
                 lock.progress = Math.max(0, lock.progress - dt * this.unlockSpeed * 0.5);
             }
 
-            const m = lock.marker;
-            m.visible = missilesReady && lock.progress > 0.02;
-            if (m.visible) {
-                m.position.copy(enemy.object.position);
-                if (camera) m.lookAt(camera.position);
-                const locked = lock.progress >= 1;
-                m.material.color.setHex(locked ? 0xff3322 : 0xffaa22);
-                m.material.opacity = locked ? 0.95 : 0.55 + lock.progress * 0.4;
-                const ringScale = (enemy.radius + 1.2) * (locked ? 1 : 1 + (1 - lock.progress) * 1.5);
-                m.scale.setScalar(ringScale);
-                m.rotation.z += dt * (locked ? 3 : 1);
+            const visible = missilesReady;
+            if (!visible) {
+                if (lock.marker.visible) lock.marker.visible = false;
+                if (lock.marker2.visible) lock.marker2.visible = false;
+                if (lock.marker3.visible) lock.marker3.visible = false;
+            } else {
+                this._updateRing(lock.marker, enemy, camera, lock.progress, 0, dt);
+                this._updateRing(lock.marker2, enemy, camera, lock.progress, 1, dt);
+                this._updateRing(lock.marker3, enemy, camera, lock.progress, 2, dt);
             }
         }
 
         for (const [enemy, lock] of this.locks) {
             if (!enemy.alive) {
-                this.scene.remove(lock.marker);
-                lock.marker.geometry.dispose();
-                lock.marker.material.dispose();
+                this._disposeLockMarkers(lock);
                 this.locks.delete(enemy);
             }
         }
     }
 
-    _fireSalvo(player) {
-        const lockedTargets = [];
-        for (const [enemy, lock] of this.locks) {
-            if (lock.progress >= 1 && enemy.alive) lockedTargets.push(enemy);
+    _disposeLockMarkers(lock) {
+        for (const key of ['marker', 'marker2', 'marker3']) {
+            const m = lock[key];
+            if (!m) continue;
+            this.scene.remove(m);
+            m.geometry.dispose();
+            m.material.dispose();
         }
-        if (lockedTargets.length === 0) return;
+    }
+
+    clearLocks() {
+        for (const [, lock] of this.locks) this._disposeLockMarkers(lock);
+        this.locks.clear();
+    }
+
+    _fireSalvo(player) {
+        // Liste des cibles + leur tier acquis (1, 2 ou 3 missiles).
+        const targetTiers = [];
+        for (const [enemy, lock] of this.locks) {
+            const tier = Math.floor(Math.min(this.maxTier, lock.progress));
+            if (tier >= 1 && enemy.alive) targetTiers.push({ enemy, tier });
+        }
+        if (targetTiers.length === 0) return;
 
         const overcharge = player.overchargeTime > 0;
         const rapid = player.rapidTime > 0;
-        const missilesPerTarget = rapid ? 3 : 1;
+        const rapidMul = rapid ? 3 : 1;
         const damage = overcharge ? 9999 : 25;
 
         const targets = [];
-        for (let r = 0; r < missilesPerTarget; r++) {
-            for (const t of lockedTargets) targets.push(t);
+        for (const { enemy, tier } of targetTiers) {
+            const count = tier * rapidMul;
+            for (let i = 0; i < count; i++) targets.push(enemy);
         }
 
         const playerPos = player.object.position;
@@ -390,8 +430,13 @@ export class MissileSystem {
     }
 
     getStatus() {
+        // `locked` = somme des tiers acquis sur toutes les cibles. Représente
+        // le nombre total de missiles qui partiront à la salve.
         let locked = 0;
-        for (const [, lock] of this.locks) if (lock.progress >= 1) locked++;
+        for (const [, lock] of this.locks) {
+            const tier = Math.floor(Math.min(this.maxTier, lock.progress));
+            if (tier >= 1) locked += tier;
+        }
         return { locked, cooldown: Math.max(0, this.cooldown) };
     }
 }
