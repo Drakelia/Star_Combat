@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TrailLine } from '../effects/TrailLine.js';
+import { ShieldState } from './ShieldState.js';
 
 const FORWARD = new THREE.Vector3(0, 0, -1);
 
@@ -60,6 +61,11 @@ export class Ship {
         this.fireCooldown = 0;
         this.fireRate = 6;
 
+        // Bouclier rechargeable (FTL-like). Le `shieldTime` ci-dessus reste
+        // dédié au powerup d'invincibilité totale.
+        this.shield = new ShieldState();
+        this._lastShieldHitTime = -Infinity;
+
         const shieldGeo = new THREE.SphereGeometry(2.4, 24, 16);
         const shieldMat = new THREE.MeshBasicMaterial({
             color: 0x55ccff,
@@ -70,6 +76,19 @@ export class Ship {
         });
         this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
         this.object.add(this.shieldMesh);
+
+        // Mesh visuelle du bouclier rechargeable. Distincte du powerup pour
+        // que les deux états soient lisibles simultanément.
+        const rsGeo = new THREE.SphereGeometry(2.0, 20, 14);
+        const rsMat = new THREE.MeshBasicMaterial({
+            color: 0x88e5ff,
+            transparent: true,
+            opacity: 0.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        this._rechargeShieldMesh = new THREE.Mesh(rsGeo, rsMat);
+        this.object.add(this._rechargeShieldMesh);
         this.muzzleOffsets = [
             new THREE.Vector3(-1.1, 0, 0),
             new THREE.Vector3(1.1, 0, 0),
@@ -96,9 +115,48 @@ export class Ship {
         this._trail.reset();
     }
 
-    takeDamage(d) {
+    /**
+     * @param {number} d  Dégâts bruts.
+     * @param {'laser'|'sniper'|'missile'} [kind='laser']
+     * @returns {boolean} true si la coque a été touchée (HP réduits).
+     *
+     * Routing par type :
+     *  - powerup invincibilité actif → tout est ignoré.
+     *  - 'laser'  : bouclier actif → 1 segment consommé, 0 dégât coque.
+     *  - 'sniper' : bouclier actif → wipe complet, 0 dégât coque (absorption totale).
+     *  - 'missile': retire 2 segments, dégâts /2 si bouclier actif au moment de l'impact.
+     */
+    takeDamage(d, kind = 'laser') {
         if (this.shieldTime > 0) return false;
-        this.hp -= d;
+
+        const shieldWasActive = this.shield.isActive();
+        let hullDamage = 0;
+
+        if (kind === 'sniper') {
+            if (shieldWasActive) {
+                this.shield.wipe();
+                this._lastShieldHitTime = performance.now();
+                return false;
+            }
+            hullDamage = d;
+        } else if (kind === 'missile') {
+            if (shieldWasActive) {
+                this.shield.consume(2);
+                this._lastShieldHitTime = performance.now();
+                hullDamage = d * 0.5;
+            } else {
+                hullDamage = d;
+            }
+        } else {
+            if (shieldWasActive) {
+                this.shield.consume(1);
+                this._lastShieldHitTime = performance.now();
+                return false;
+            }
+            hullDamage = d;
+        }
+
+        this.hp -= hullDamage;
         if (this.hp <= 0) {
             this.hp = 0;
             this.alive = false;
@@ -146,6 +204,7 @@ export class Ship {
         if (this.shieldTime > 0) this.shieldTime = Math.max(0, this.shieldTime - dt);
         if (this.rapidTime > 0) this.rapidTime = Math.max(0, this.rapidTime - dt);
         if (this.overchargeTime > 0) this.overchargeTime = Math.max(0, this.overchargeTime - dt);
+        this.shield.update(dt);
 
         const boostBoost = this.boosting ? 2.6 : 0;
         const target = 0.4 + this.thrust * 1.6 + boostBoost;
@@ -160,6 +219,16 @@ export class Ship {
         const shieldOpacity = this.shieldTime > 0 ? (0.18 + Math.sin(performance.now() * 0.01) * 0.06) : 0;
         this.shieldMesh.material.opacity = shieldOpacity;
         this.shieldMesh.visible = shieldOpacity > 0.01;
+
+        const segs = this.shield.segments;
+        const max = this.shield.maxSegments;
+        const baseOp = segs > 0 ? 0.05 + 0.035 * (segs / max) : 0;
+        const sinceHitMs = performance.now() - this._lastShieldHitTime;
+        const flashDur = 350;
+        const flash = sinceHitMs < flashDur ? (1 - sinceHitMs / flashDur) * 0.45 : 0;
+        const rsOp = baseOp + flash;
+        this._rechargeShieldMesh.material.opacity = rsOp;
+        this._rechargeShieldMesh.visible = rsOp > 0.01;
 
         this._updateTrail();
     }

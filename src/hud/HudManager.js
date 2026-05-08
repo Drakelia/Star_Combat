@@ -19,10 +19,19 @@ export class HudManager {
         this.dmgLowEl = document.getElementById('damage-low');
         this.dmgHitEl = document.getElementById('damage-hit');
         this.boostVignetteEl = document.getElementById('boost-vignette');
+        this.shieldHitEl = document.getElementById('shield-hit');
+        this.shieldBarEl = document.getElementById('shield-bar');
+        this.shieldSegEls = this.shieldBarEl
+            ? Array.from(this.shieldBarEl.querySelectorAll('.hud-shield-seg'))
+            : [];
 
         this._prevHp = null;
         this._hitFlashEnd = 0;
         this._hitFlashDuration = 380;
+        this._prevShieldHitT = -Infinity;
+        this._shieldFlashEnd = 0;
+        this._shieldFlashDuration = 320;
+        this._segState = this.shieldSegEls.map(() => ({ cls: null, fillBucket: -1 }));
 
         this._cache = {
             speed: null,
@@ -45,6 +54,7 @@ export class HudManager {
             dmgLowCrit: null,
             dmgHitBucket: null,
             boostVignetteActive: null,
+            shieldHitBucket: null,
         };
     }
 
@@ -103,7 +113,41 @@ export class HudManager {
         this._setText(this.waveStatusEl, 'waveStatus', waveStatusText);
 
         this._updateBuffs(ship);
+        this._updateShieldBar(ship);
         this._updateDamageVignette(ship, hpRatio);
+    }
+
+    _updateShieldBar(ship) {
+        if (!this.shieldSegEls.length || !ship.shield) return;
+        const segs = ship.shield.segments;
+        const max = ship.shield.maxSegments;
+        const ratio = ship.shield.getRechargeRatio();
+        for (let i = 0; i < this.shieldSegEls.length; i++) {
+            const el = this.shieldSegEls[i];
+            const state = this._segState[i];
+            const fill = el.firstElementChild;
+            let cls;
+            let bucket;
+            if (i < segs) {
+                cls = 'full';
+                bucket = 20;
+            } else if (i === segs && segs < max) {
+                cls = 'charging';
+                bucket = Math.round(ratio * 20);
+            } else {
+                cls = 'empty';
+                bucket = 0;
+            }
+            if (state.cls !== cls) {
+                el.classList.remove('full', 'charging', 'empty');
+                el.classList.add(cls);
+                state.cls = cls;
+            }
+            if (state.fillBucket !== bucket) {
+                fill.style.transform = `scaleX(${(bucket / 20).toFixed(2)})`;
+                state.fillBucket = bucket;
+            }
+        }
     }
 
     _updateDamageVignette(ship, hpRatio) {
@@ -113,6 +157,12 @@ export class HudManager {
             this._hitFlashEnd = now + this._hitFlashDuration;
         }
         this._prevHp = ship.hp;
+
+        const shieldHitT = ship._lastShieldHitTime ?? -Infinity;
+        if (shieldHitT > this._prevShieldHitT && ship.shieldTime <= 0) {
+            this._shieldFlashEnd = now + this._shieldFlashDuration;
+        }
+        this._prevShieldHitT = shieldHitT;
 
         const alive = ship.alive !== false;
         const warn = alive && hpRatio <= 0.55 && hpRatio > 0.25;
@@ -127,6 +177,15 @@ export class HudManager {
         if (this._cache.dmgHitBucket !== bucket) {
             if (this.dmgHitEl) this.dmgHitEl.style.opacity = (bucket * 0.05).toFixed(2);
             this._cache.dmgHitBucket = bucket;
+        }
+
+        const sRemaining = Math.max(0, this._shieldFlashEnd - now);
+        const st = sRemaining / this._shieldFlashDuration;
+        const sFlash = alive ? st * st * 0.7 : 0;
+        const sBucket = Math.round(sFlash * 20);
+        if (this._cache.shieldHitBucket !== sBucket) {
+            if (this.shieldHitEl) this.shieldHitEl.style.opacity = (sBucket * 0.05).toFixed(2);
+            this._cache.shieldHitBucket = sBucket;
         }
     }
 

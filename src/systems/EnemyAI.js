@@ -347,6 +347,7 @@ export class EnemyAI {
             damage: 20,
             color: 0xff2266,
             lifetime: 4,
+            kind: 'sniper',
         });
     }
 }

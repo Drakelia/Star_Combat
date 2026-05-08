@@ -52,7 +52,7 @@ export class CombatSystem {
                 } else {
                     if (this._hits(p, player.object.position, 1.5)) {
                         const wasAlive = player.alive;
-                        player.takeDamage(p.damage);
+                        player.takeDamage(p.damage, p.kind);
                         p.alive = false;
                         if (player.alive) {
                             this.effects?.spark(p.position);

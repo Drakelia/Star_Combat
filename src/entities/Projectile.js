@@ -4,12 +4,13 @@ const GEO = new THREE.CylinderGeometry(0.12, 0.12, 1.6, 6);
 GEO.rotateX(Math.PI / 2);
 
 export class Projectile {
-    constructor({ position, direction, speed = 350, lifetime = 2.5, owner = 'player', damage = 10, color = 0x66ddff, inheritVelocity = null }) {
+    constructor({ position, direction, speed = 350, lifetime = 2.5, owner = 'player', damage = 10, color = 0x66ddff, inheritVelocity = null, kind = 'laser' }) {
         this.velocity = direction.clone().normalize().multiplyScalar(speed);
         if (inheritVelocity) this.velocity.add(inheritVelocity);
         this.lifetime = lifetime;
         this.owner = owner;
         this.damage = damage;
+        this.kind = kind;
         this.alive = true;
         this.radius = 0.4;
 

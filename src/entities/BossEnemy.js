@@ -326,6 +326,7 @@ export class BossEnemy extends Enemy {
             color: 0xff2266,
             lifetime: 4,
             radius: 0.5,
+            kind: 'sniper',
         });
     }
 

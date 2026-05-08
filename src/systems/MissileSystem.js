@@ -101,7 +101,7 @@ export class MissileSystem {
                         const distSq = this._segmentDistSq(m.prevPosition, m.position, player.object.position);
                         if (distSq < r * r) {
                             const wasAlive = player.alive;
-                            player.takeDamage(m.damage);
+                            player.takeDamage(m.damage, 'missile');
                             this._detonate(m);
                             if (!player.alive && wasAlive) {
                                 this.effects?.spawn(player.object.position, { count: 320, scale: 1.9, speed: 55, lifetime: 1.8 });

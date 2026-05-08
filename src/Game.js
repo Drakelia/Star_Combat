@@ -659,6 +659,8 @@ export class Game {
         this.ship.shieldTime = 0;
         this.ship.rapidTime = 0;
         this.ship.overchargeTime = 0;
+        this.ship.shield.reset();
+        this.ship._lastShieldHitTime = -Infinity;
         this.ship.fireCooldown = 0;
         this.ship.object.position.set(200, 40, 200);
         this.ship.object.quaternion.identity();
