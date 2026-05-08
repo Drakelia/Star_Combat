@@ -27,11 +27,16 @@ export class MouseAim {
         // Cible d'attraction (en pixels) ou null.
         this._magnet = null;
         // Force max appliquée à la composante away (0..1).
-        this.assistStrength = 0.55;
+        this.assistStrength = 0.45;
         // Plages de distance (en pixels) où l'assist est actif.
         this._assistMinDist = 6;
-        this._assistMaxDist = 220;
-        this._assistFalloff = 60;
+        this._assistMaxDist = 180;
+        this._assistFalloff = 50;
+        // Au-dessus de ce delta (px/frame), on considère que c'est un flick
+        // intentionnel : l'assist se relâche complètement pour ne pas bloquer
+        // le viseur loin du lead (typiquement au bord de l'écran).
+        this._flickReleasePx = 14;
+        this._flickFullReleasePx = 36;
 
         canvas.addEventListener('mousemove', (e) => this._onMouseMove(e));
 
@@ -101,6 +106,13 @@ export class MouseAim {
                     const inRamp = Math.min(1, (tlen - this._assistMinDist) / 18);
                     const outRamp = Math.min(1, (this._assistMaxDist - tlen) / this._assistFalloff);
                     force = this.assistStrength * inRamp * outRamp;
+                }
+                // Relâche progressivement quand le joueur "flicke" la souris.
+                const deltaLen = Math.hypot(dx, dy);
+                if (deltaLen > this._flickReleasePx) {
+                    const k = Math.min(1, (deltaLen - this._flickReleasePx)
+                        / (this._flickFullReleasePx - this._flickReleasePx));
+                    force *= 1 - k;
                 }
                 // Atténue uniquement la composante d'éloignement (towardComp < 0).
                 let adjToward = towardComp;
