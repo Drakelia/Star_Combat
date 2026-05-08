@@ -44,26 +44,35 @@ export class CollisionSystem {
         return this.grid.querySegment(a, b, padding, this._candidates, this._seen);
     }
 
-    resolveShip(ship, shipRadius = 1.5, restitution = 0.25) {
-        const shipPos = ship.object.position;
-        const candidates = this.queryPoint(shipPos, shipRadius + 80);
+    /**
+     * Pousse `body` hors des obstacles statiques (astéroïdes) et amortit la
+     * composante de vélocité dirigée vers l'obstacle. Générique : utilisable
+     * pour le joueur comme pour les ennemis. `body` doit exposer
+     * `body.object.position` et `body.velocity`.
+     *
+     * `queryPadding` agrandit la requête de grille — utile si le corps est
+     * rapide. Pour des ennemis plus lents, ~40-60 suffit.
+     */
+    resolveBody(body, bodyRadius = 1.5, restitution = 0.25, queryPadding = 80) {
+        const pos = body.object.position;
+        const candidates = this.queryPoint(pos, bodyRadius + queryPadding);
 
-        for (const body of candidates) {
-            const bp = body.position ?? body.mesh?.position;
-            const r = body.radius;
-            if (!bp || r == null) continue;
+        for (const obs of candidates) {
+            const op = obs.position ?? obs.mesh?.position;
+            const r = obs.radius;
+            if (!op || r == null) continue;
 
-            this._diff.subVectors(shipPos, bp);
+            this._diff.subVectors(pos, op);
             const dist = this._diff.length();
-            const minDist = r + shipRadius;
+            const minDist = r + bodyRadius;
 
             if (dist < minDist && dist > 0.0001) {
                 this._normal.copy(this._diff).divideScalar(dist);
-                shipPos.copy(bp).addScaledVector(this._normal, minDist);
+                pos.copy(op).addScaledVector(this._normal, minDist);
 
-                const vDotN = ship.velocity.dot(this._normal);
+                const vDotN = body.velocity.dot(this._normal);
                 if (vDotN < 0) {
-                    ship.velocity.addScaledVector(this._normal, -(1 + restitution) * vDotN);
+                    body.velocity.addScaledVector(this._normal, -(1 + restitution) * vDotN);
                 }
             }
         }

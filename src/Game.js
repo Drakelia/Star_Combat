@@ -220,7 +220,7 @@ export class Game {
         this.ship.update(dt);
         for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
 
-        this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat, this.missiles);
+        this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat, this.missiles, this._obstacleGrid);
         for (const enemy of this.enemies) {
             if (enemy.alive) enemy.updateTrail();
         }
@@ -285,7 +285,14 @@ export class Game {
 
         this.powerups.update(dt, this.ship, (type) => this._applyPowerup(type));
 
-        this.collisions.resolveShip(this.ship, 1.5, 0.3);
+        this.collisions.resolveBody(this.ship, 1.5, 0.3);
+        for (let i = 0; i < this.enemies.length; i++) {
+            const e = this.enemies[i];
+            if (!e.alive) continue;
+            // Padding réduit : ennemis plus lents que le joueur, pas besoin
+            // d'élargir la requête autant.
+            this.collisions.resolveBody(e, e.radius, 0.2, 50);
+        }
         this.effects.update(dt);
         this.streamer.update(dt, this.ship.object.position);
         this.waveManager.update(dt, this.ship);

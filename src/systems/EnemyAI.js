@@ -43,7 +43,10 @@ export class EnemyAI {
         this._forward = new THREE.Vector3();
     }
 
-    updateAll(enemies, target, dt, combat, missileSystem = null) {
+    updateAll(enemies, target, dt, combat, missileSystem = null, obstacleGrid = null) {
+        // Stocké pour la durée de l'update : `_drive` y lit pour le steering
+        // d'évitement d'astéroïdes. Pas conservé entre frames.
+        this._obstacleGrid = obstacleGrid;
         const sepR2 = this.separationRadius * this.separationRadius;
 
         for (let i = 0; i < enemies.length; i++) {
@@ -138,6 +141,35 @@ export class EnemyAI {
             this._desiredVel.addScaledVector(this._toAnchor, (params.speed * this.anchorWeight * k * boostMul) / anchorDist);
         }
         this._desiredVel.add(separation);
+
+        // Évitement d'astéroïdes : répulsion locale pour les vaisseaux qui se
+        // trouvent près d'un obstacle. La grille est passée par `Game.js` ;
+        // on ne touche jamais à `physics/` directement. Force quadratique
+        // (proche = beaucoup, loin = rien) → contournement plutôt que rebond.
+        const grid = this._obstacleGrid;
+        if (grid) {
+            const probe = enemy.radius + 30;
+            const candidates = grid.queryPoint(ePos, probe);
+            const strength = params.speed * 2.5;
+            for (let i = 0, n = candidates.length; i < n; i++) {
+                const a = candidates[i];
+                const ap = a.position;
+                if (!ap) continue;
+                const dx = ePos.x - ap.x;
+                const dy = ePos.y - ap.y;
+                const dz = ePos.z - ap.z;
+                const safe = a.radius + enemy.radius + 18;
+                const d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < safe * safe && d2 > 0.0001) {
+                    const d = Math.sqrt(d2);
+                    const t = 1 - d / safe;
+                    const k = (t * t * strength) / d;
+                    this._desiredVel.x += dx * k;
+                    this._desiredVel.y += dy * k;
+                    this._desiredVel.z += dz * k;
+                }
+            }
+        }
 
         const desiredSq = this._desiredVel.lengthSq();
         const maxSpeed = params.speed * 1.4 * boostMul;
