@@ -30,7 +30,7 @@ export class PowerupSystem {
         const shipPos = ship.object.position;
         for (let i = this.list.length - 1; i >= 0; i--) {
             const p = this.list[i];
-            p.update(dt);
+            p.update(dt, shipPos);
 
             if (p.alive) {
                 this._tmp.subVectors(shipPos, p.object.position);
