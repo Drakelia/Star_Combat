@@ -36,6 +36,11 @@ export class BossEnemy extends Enemy {
         this.preferredDist = 200;
         this.speed = 28;
         this.turnRate = 0.25;
+        // Laisse : si le joueur fuit au-delà de cette distance, le boss
+        // accélère jusqu'à `catchupSpeed` pour rester engagé. Sinon, sa
+        // vitesse de base (28) le laisse derrière contre un joueur en boost.
+        this.maxLeash = 360;
+        this.catchupSpeed = 200;
 
         this.turrets = [];
         this._buildTurrets();
@@ -181,11 +186,17 @@ export class BossEnemy extends Enemy {
             this.object.quaternion.rotateTowards(this._desiredQuat, this.turnRate * dt);
         }
 
-        // Drift lent vers la distance préférée.
+        // Drift lent vers la distance préférée. Si le joueur dépasse la
+        // laisse, on bascule sur `catchupSpeed` pour le rattraper.
         const speedScale = THREE.MathUtils.clamp((targetDist - this.preferredDist) / 80, -1, 1);
+        let effSpeed = this.speed;
+        if (targetDist > this.maxLeash) {
+            const over = Math.min(1, (targetDist - this.maxLeash) / 120);
+            effSpeed = this.speed + (this.catchupSpeed - this.speed) * over;
+        }
         this._tmpDir.copy(this._tmpVec).normalize();
         this.velocity.lerp(
-            this._tmpDir.multiplyScalar(this.speed * speedScale),
+            this._tmpDir.multiplyScalar(effSpeed * speedScale),
             1 - Math.exp(-1.5 * dt)
         );
         ePos.addScaledVector(this.velocity, dt);

@@ -135,10 +135,21 @@ export class EnemyAI {
         }
         const boostMul = enemy.boostTime > 0 ? this.boostMultiplier : 1;
 
+        // Laisse : si le joueur fuit au-delà de `maxLeash`, on remplace la
+        // vitesse de base par une vitesse de poursuite (suffisante pour
+        // rattraper même un joueur en boost). Évite que les unités lentes
+        // (tank/sniper/boss) ne soient distancées indéfiniment.
+        let effSpeed = params.speed;
+        if (params.maxLeash && targetDist > params.maxLeash) {
+            const over = Math.min(1, (targetDist - params.maxLeash) / 80);
+            const catchup = params.catchupSpeed ?? params.speed;
+            effSpeed = params.speed + (catchup - params.speed) * over;
+        }
+
         this._desiredVel.set(0, 0, 0);
         if (anchorDist > 0.001) {
             const k = Math.min(1, anchorDist / 30);
-            this._desiredVel.addScaledVector(this._toAnchor, (params.speed * this.anchorWeight * k * boostMul) / anchorDist);
+            this._desiredVel.addScaledVector(this._toAnchor, (effSpeed * this.anchorWeight * k * boostMul) / anchorDist);
         }
         this._desiredVel.add(separation);
 
@@ -172,7 +183,7 @@ export class EnemyAI {
         }
 
         const desiredSq = this._desiredVel.lengthSq();
-        const maxSpeed = params.speed * 1.4 * boostMul;
+        const maxSpeed = effSpeed * 1.4 * boostMul;
         if (desiredSq > maxSpeed * maxSpeed) {
             this._desiredVel.multiplyScalar(maxSpeed / Math.sqrt(desiredSq));
         }
@@ -205,6 +216,10 @@ export class EnemyAI {
             turnRate: this.turnRate * 0.7,
             fireRange: 180,
             allowBoost: false,
+            // Laisse : tank reste à portée d'engagement même contre un joueur en
+            // boost (joueur boost = 180 u/s, catchup à 210 le rattrape).
+            maxLeash: 220,
+            catchupSpeed: 210,
         });
 
         enemy.fireCooldown -= dt;
@@ -234,6 +249,10 @@ export class EnemyAI {
             turnRate: this.turnRate * 0.55,
             fireRange: 480,
             allowBoost: false,
+            // Laisse : sniper se déplace lentement mais ne se laisse pas
+            // distancer au point de perdre la portée de tir.
+            maxLeash: 420,
+            catchupSpeed: 200,
         });
 
         const inRange = targetDist < 480;
