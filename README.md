@@ -25,12 +25,14 @@ Au lancement, choisissez votre difficulté (**Facile / Normal / Difficile**). El
 | **Souris** | Viser |
 | **Clic gauche** | Tirer |
 | **Clic droit** (maintenu) | Verrouiller des cibles ; relâcher = salve de missiles |
+| **T** | Accrocher la cible la plus proche / cycler vers la suivante |
 | **W / S** | Accélérer / reculer |
 | **X** | Freiner |
 | **A / D** | Roulis gauche / droite |
 | **Q / E** | Strafe latéral |
 | **Espace / Ctrl** | Monter / descendre |
 | **Shift** | Boost |
+| **Échap** | Pause / retour au menu |
 | **F** | Plein écran |
 
 ## Boucle de jeu
@@ -57,7 +59,7 @@ Les PV des ennemis et leur nombre montent à chaque vague.
 
 - **Coque** (HP) : barre principale en bas à gauche. À zéro → game over.
 - **Bouclier** segmenté façon FTL : 3 segments. Après tout impact, attente d'**1 s** avant la reprise, puis recharge d'**un segment toutes les 3 s** (la barre du HUD montre la progression du prochain segment).
-- **Boost** : `Shift` consomme la réserve (jusqu'à 180 s) pour augmenter fortement la vitesse. Une vignette à l'écran indique le boost actif.
+- **Boost** : `Shift` consomme la réserve (jusqu'à 180 s) pour augmenter fortement la vitesse. Effets visuels : vignette douce, trail élargi (un halo orange se superpose à la trail principale), et la caméra prend du retard à l'enclenchement avant de garder un léger décalage tant que le boost dure (impression de prise de vitesse).
 
 #### Comportement du bouclier face aux dégâts
 
@@ -71,13 +73,28 @@ Les PV des ennemis et leur nombre montent à chaque vague.
 
 Le missile est donc le seul tir qui passe partiellement à travers le bouclier : il « croque » 2 segments et laisse quand même la moitié de ses dégâts arriver sur la coque. Inversement, le sniper est neutralisé à 100 % tant qu'il reste au moins un segment, mais dévaste si le bouclier est tombé.
 
+### Cible accrochée (lock-on)
+
+La touche **T** verrouille un ennemi en tant que cible principale (à la *Star Citizen*). Si aucune cible n'est accrochée, l'ennemi vivant le plus proche est sélectionné ; sinon T cycle vers le suivant (par distance croissante). Si la cible meurt ou disparaît, le lock retombe automatiquement sur le plus proche — pas besoin de re-presser T.
+
+Quand une cible est accrochée :
+
+- Un **carré à 4 coins** la cadre, avec son nom (CHASSEUR / SNIPER / TANK / BOSS) au-dessus et la distance en dessous.
+- Hors champ, une **flèche orange agrandie** au bord d'écran indique sa direction (les autres ennemis n'affichent plus de marqueur, c'est exclusivement la cible accrochée).
+- Un panneau d'infos en haut à gauche affiche **nom**, **barre de PV**, **vitesse**, **distance**.
+- Le **réticule de lead** (point d'impact prédit) ne s'affiche plus que sur la cible accrochée, et bénéficie d'un **aim-assist magnétique** : la composante du mouvement de souris qui éloigne le réticule du lead est atténuée — le viseur ne se déplace jamais de lui-même, mais il « colle » légèrement au point d'impact prédit.
+
+Le lock T est purement cosmétique/aim-assist — il n'influence ni le verrouillage des missiles, ni la cadence de tir.
+
 ### Armement
 
-- **Canon laser** (clic gauche) : tir rapide à projectiles à vitesse finie. Il faut anticiper le mouvement de la cible — un réticule de **lead** s'affiche sur la cible visée pour montrer le point d'impact prédit. Le tir alterne entre plusieurs canons (muzzles).
-- **Missiles à verrouillage** (clic droit) :
-  - **Maintenir** clic droit balaye le viseur sur les ennemis devant vous et les verrouille un à un (compteur **CIBLES** au HUD, son d'accroche à chaque verrou).
-  - **Relâcher** tire une **salve** : un missile par cible verrouillée. Les missiles poursuivent leur cible et explosent à l'impact ou à proximité.
-  - Le powerup **Salve massive** augmente le nombre de missiles tirés par cible.
+- **Canon laser** (clic gauche) : tir rapide à projectiles à vitesse finie. Il faut anticiper le mouvement de la cible — le réticule de **lead** sur la cible accrochée montre le point d'impact prédit. Le tir alterne entre plusieurs canons (muzzles).
+- **Missiles à verrouillage** (clic droit) — système indépendant de la cible accrochée par T :
+  - **Maintenir** clic droit verrouille les ennemis dans un cône avant (~30°). Quand un ennemi sort du cône, le progrès de lock est conservé pendant **1 s** avant de décroître (utile face à des ennemis qui esquivent).
+  - **Multi-lock par cible** : maintenir le ciblage **2× plus longtemps** que la durée initiale ajoute un 2e missile sur la cible, **3×** ajoute un 3e (cap à 3). Visualisation : deux anneaux concentriques se contractent autour de l'anneau central et se figent en rouge à mesure que les missiles supplémentaires sont verrouillés.
+  - **Relâcher** tire une **salve** : un missile par tier acquis pour chaque cible. Les missiles poursuivent leur cible et explosent à l'impact ou à proximité.
+  - Le powerup **Salve massive** envoie un nuage massif de missiles sur les ennemis vivants.
+  - Le powerup **Tir rapide** multiplie aussi par 3 le nombre de missiles tirés par cible.
   - Cooldown affiché à côté de **MSL** au HUD.
 
 ### Powerups
@@ -102,13 +119,14 @@ Drops aléatoires à la mort d'ennemis (durée de vie ~30 s, beacon coloré visi
 
 - **VAGUE** + statut (intermission / active / boss).
 - **COQUE** + segments de **bouclier**.
-- **VEL** vitesse, **CIBLES** verrouillées, **MSL** cooldown missiles, **ENN** ennemis restants.
+- **VEL** vitesse, **CIBLES** = nombre total de missiles verrouillés (somme des tiers sur toutes les cibles), **MSL** cooldown missiles, **ENN** ennemis restants.
 - **BOOST** réserve restante.
-- Marqueurs à l'écran sur les ennemis hors champ + indicateur de **lead** sur la cible visée.
+- **Cible accrochée** (si T appuyé) : carré 4-coins autour de la cible, panneau d'infos top-left, flèche directionnelle hors champ.
 
-### Game over
+### Pause et game over
 
-À la destruction du vaisseau, l'écran affiche : vague atteinte, durée, kills, tirs et précision, missiles tirés, dégâts subis, powerups récupérés. Bouton **Relancer**.
+- **Échap** suspend la partie (overlay PAUSE) ; vous pouvez reprendre ou retourner au menu de difficulté.
+- À la destruction du vaisseau, l'écran affiche : vague atteinte, durée, kills, tirs et précision, missiles tirés, dégâts subis, powerups récupérés. Le bouton renvoie au menu de difficulté.
 
 ## Stack technique
 
