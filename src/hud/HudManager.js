@@ -16,6 +16,12 @@ export class HudManager {
         this.boostFillEl = document.getElementById('boost-fill');
         this.boostTextEl = document.getElementById('boost-text');
         this.buffsEl = document.getElementById('buffs');
+        this.dmgLowEl = document.getElementById('damage-low');
+        this.dmgHitEl = document.getElementById('damage-hit');
+
+        this._prevHp = null;
+        this._hitFlashEnd = 0;
+        this._hitFlashDuration = 380;
 
         this._cache = {
             speed: null,
@@ -34,6 +40,9 @@ export class HudManager {
             boostText: null,
             buffsHtml: null,
             buffsVisible: null,
+            dmgLowWarn: null,
+            dmgLowCrit: null,
+            dmgHitBucket: null,
         };
     }
 
@@ -91,6 +100,31 @@ export class HudManager {
         this._setText(this.waveStatusEl, 'waveStatus', waveStatusText);
 
         this._updateBuffs(ship);
+        this._updateDamageVignette(ship, hpRatio);
+    }
+
+    _updateDamageVignette(ship, hpRatio) {
+        const now = performance.now();
+
+        if (this._prevHp !== null && ship.hp < this._prevHp - 0.001 && ship.shieldTime <= 0) {
+            this._hitFlashEnd = now + this._hitFlashDuration;
+        }
+        this._prevHp = ship.hp;
+
+        const alive = ship.alive !== false;
+        const warn = alive && hpRatio <= 0.55 && hpRatio > 0.25;
+        const crit = alive && hpRatio <= 0.25;
+        this._toggleClass(this.dmgLowEl, 'warn', 'dmgLowWarn', warn);
+        this._toggleClass(this.dmgLowEl, 'crit', 'dmgLowCrit', crit);
+
+        const remaining = Math.max(0, this._hitFlashEnd - now);
+        const t = remaining / this._hitFlashDuration;
+        const flash = alive ? t * t * 0.85 : 0;
+        const bucket = Math.round(flash * 20);
+        if (this._cache.dmgHitBucket !== bucket) {
+            if (this.dmgHitEl) this.dmgHitEl.style.opacity = (bucket * 0.05).toFixed(2);
+            this._cache.dmgHitBucket = bucket;
+        }
     }
 
     _updateBuffs(ship) {
