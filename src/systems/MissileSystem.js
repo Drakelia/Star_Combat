@@ -14,13 +14,22 @@ export class MissileSystem {
         this.fadingTrails = [];
         this.trailFadeTime = 3;
 
-        this.coneCos = Math.cos(THREE.MathUtils.degToRad(22));
+        // Cône de lock élargi (30°) car les ennemis se dispersent davantage
+        // depuis l'arrivée des Sniper/Tank. Lock 2× plus rapide pour
+        // compenser la baisse d'intérêt des missiles face à des ennemis
+        // moins nombreux mais plus résistants.
+        this.coneCos = Math.cos(THREE.MathUtils.degToRad(30));
         this.range = 320;
-        this.lockSpeed = 1.4;
+        this.lockSpeed = 2.8;
         this.unlockSpeed = 2.5;
         this.maxLocks = Infinity;
         this.salvoCooldown = 8;
         this.cooldown = 0;
+        // Grace period : si la cible sort du cône, on conserve le progrès
+        // de lock pendant `lingerGrace` secondes avant de le faire décroître.
+        // Permet de garder un lock en cours quand l'ennemi sort brièvement
+        // (esquive, passage derrière un astéroïde, etc.).
+        this.lingerGrace = 1.0;
         this.wasLocking = false;
         this.playerMissilesFired = 0;
 
@@ -202,13 +211,19 @@ export class MissileSystem {
                 const marker = this._makeMarker();
                 marker.visible = false;
                 this.scene.add(marker);
-                lock = { progress: 0, marker };
+                lock = { progress: 0, marker, lingerTime: 0 };
                 this.locks.set(enemy, lock);
             }
 
             if (!missilesReady) {
                 lock.progress = 0;
             }
+
+            // Grace period : reset le compteur quand on est dans le cône,
+            // sinon il s'écoule. Tant qu'il est sous `lingerGrace`, le lock
+            // reste figé même hors cône.
+            if (inCone) lock.lingerTime = 0;
+            else lock.lingerTime += dt;
 
             const canGain = missilesReady && isLocking && inCone && (lock.progress >= 1 || lockedCount < this.maxLocks);
             if (canGain) {
@@ -218,7 +233,7 @@ export class MissileSystem {
                 }
             } else if (!isLocking) {
                 lock.progress = Math.max(0, lock.progress - dt * this.unlockSpeed);
-            } else if (!inCone) {
+            } else if (!inCone && lock.lingerTime > this.lingerGrace) {
                 lock.progress = Math.max(0, lock.progress - dt * this.unlockSpeed * 0.5);
             }
 
