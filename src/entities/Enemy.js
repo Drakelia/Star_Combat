@@ -2,36 +2,18 @@ import * as THREE from 'three';
 import { TrailLine } from '../effects/TrailLine.js';
 
 export class Enemy {
-    constructor({ position = new THREE.Vector3(), hp = 30 } = {}) {
+    constructor({
+        position = new THREE.Vector3(),
+        hp = 30,
+        kind = 'fighter',
+        withTrail = true,
+        trailLength = 240,
+        trailGradient = (t) => [1.0 * t, 0.25 * t * t, 0.2 * t * t * t],
+        trailOpacity = 0.8,
+    } = {}) {
+        this.kind = kind;
         this.object = new THREE.Group();
-
-        const bodyGeo = new THREE.ConeGeometry(0.7, 2.4, 8);
-        bodyGeo.rotateX(-Math.PI / 2);
-        const bodyMat = new THREE.MeshStandardMaterial({
-            color: 0x882222,
-            metalness: 0.5,
-            roughness: 0.6,
-            emissive: 0x220000,
-        });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        this.object.add(body);
-
-        const wingGeo = new THREE.BoxGeometry(2.8, 0.12, 0.7);
-        const wingMat = new THREE.MeshStandardMaterial({
-            color: 0x441111,
-            metalness: 0.4,
-            roughness: 0.6,
-        });
-        const wings = new THREE.Mesh(wingGeo, wingMat);
-        wings.position.z = 0.3;
-        this.object.add(wings);
-
-        const eyeGeo = new THREE.SphereGeometry(0.2, 10, 8);
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3333 });
-        const eye = new THREE.Mesh(eyeGeo, eyeMat);
-        eye.position.set(0, 0.2, -0.7);
-        this.object.add(eye);
-
+        this._buildVisual();
         this.object.position.copy(position);
 
         this.velocity = new THREE.Vector3();
@@ -55,15 +37,27 @@ export class Enemy {
         this.orbitOmega = (Math.random() < 0.5 ? -1 : 1) * (0.18 + Math.random() * 0.32);
         this.preferredDist = 50 + Math.random() * 60;
 
-        this.trailLength = 240;
-        this._trail = new TrailLine({
-            length: this.trailLength,
-            opacity: 0.8,
-            gradient: (t) => [1.0 * t, 0.25 * t * t, 0.2 * t * t * t],
-        });
-        this.trail = this._trail.line;
-        // Seed buffer at spawn position so the trail doesn't appear from origin.
-        this._trail.push(position.x, position.y, position.z);
+        if (withTrail) {
+            this.trailLength = trailLength;
+            this._trail = new TrailLine({
+                length: trailLength,
+                opacity: trailOpacity,
+                gradient: trailGradient,
+            });
+            this.trail = this._trail.line;
+            this._trail.push(position.x, position.y, position.z);
+        } else {
+            this._trail = null;
+            this.trail = null;
+        }
+    }
+
+    /**
+     * Construit le visuel. Méthode abstraite — chaque sous-classe (Fighter,
+     * SniperEnemy, TankEnemy, BossEnemy) la redéfinit.
+     */
+    _buildVisual() {
+        // no-op — override in subclasses
     }
 
     get position() {
@@ -76,6 +70,7 @@ export class Enemy {
     }
 
     updateTrail() {
+        if (!this._trail) return;
         const p = this.object.position;
         this._trail.push(p.x, p.y, p.z);
     }

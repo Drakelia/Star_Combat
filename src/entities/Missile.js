@@ -17,6 +17,13 @@ export class Missile {
         radius = 2.4,
         trailLength = 300,
         homingDelay = 0.8,
+        owner = 'player',
+        bodyColor = 0xdddddd,
+        bodyEmissive = 0x331100,
+        flameColor = 0x88aaff,
+        bodyScale = 1,
+        trailGradient = null,
+        trailOpacity = 0.95,
     } = {}) {
         this.scene = scene;
         this.target = target;
@@ -29,6 +36,7 @@ export class Missile {
         this.alive = true;
         this.homingDelay = homingDelay;
         this.homingTimer = 0;
+        this.owner = owner;
         this.driftAxis = new THREE.Vector3(
             (Math.random() - 0.5),
             (Math.random() - 0.5),
@@ -39,24 +47,24 @@ export class Missile {
         const dir = direction.clone().normalize();
         this.velocity = dir.clone().multiplyScalar(speed);
 
-        const bodyGeo = new THREE.CylinderGeometry(0.12, 0.18, 1.0, 6);
+        const bodyGeo = new THREE.CylinderGeometry(0.12 * bodyScale, 0.18 * bodyScale, 1.0 * bodyScale, 6);
         bodyGeo.rotateX(Math.PI / 2);
         const bodyMat = new THREE.MeshStandardMaterial({
-            color: 0xdddddd,
+            color: bodyColor,
             metalness: 0.6,
             roughness: 0.4,
-            emissive: 0x331100,
+            emissive: bodyEmissive,
         });
         this.mesh = new THREE.Mesh(bodyGeo, bodyMat);
         this.mesh.position.copy(position);
         this.mesh.quaternion.setFromUnitVectors(FORWARD_Z, dir);
         scene.add(this.mesh);
 
-        const flameGeo = new THREE.ConeGeometry(0.18, 0.6, 6);
+        const flameGeo = new THREE.ConeGeometry(0.18 * bodyScale, 0.6 * bodyScale, 6);
         flameGeo.rotateX(-Math.PI / 2);
-        flameGeo.translate(0, 0, 0.7);
+        flameGeo.translate(0, 0, 0.7 * bodyScale);
         const flameMat = new THREE.MeshBasicMaterial({
-            color: 0x88aaff,
+            color: flameColor,
             transparent: true,
             opacity: 0.9,
             blending: THREE.AdditiveBlending,
@@ -65,11 +73,12 @@ export class Missile {
         this.flame = new THREE.Mesh(flameGeo, flameMat);
         this.mesh.add(this.flame);
 
+        const defaultGrad = (t) => [0.55 * t * t, 0.35 * t * t * t, 1.0 * t];
         this.trailLength = trailLength;
         this._trail = new TrailLine({
             length: trailLength,
-            opacity: 0.95,
-            gradient: (t) => [0.55 * t * t, 0.35 * t * t * t, 1.0 * t],
+            opacity: trailOpacity,
+            gradient: trailGradient || defaultGrad,
         });
         this._trail.push(position.x, position.y, position.z);
         this.trail = this._trail.line;

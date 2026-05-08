@@ -43,19 +43,25 @@ export class EnemyAI {
         this._forward = new THREE.Vector3();
     }
 
-    updateAll(enemies, target, dt, combat) {
+    updateAll(enemies, target, dt, combat, missileSystem = null) {
         const sepR2 = this.separationRadius * this.separationRadius;
 
         for (let i = 0; i < enemies.length; i++) {
             const e = enemies[i];
             if (!e.alive) continue;
 
+            // Boss : logique entièrement déléguée à l'entité.
+            if (e.kind === 'boss') {
+                e.tick(target, dt, combat, missileSystem);
+                continue;
+            }
+
             this._sep.set(0, 0, 0);
             const ep = e.object.position;
             for (let j = 0; j < enemies.length; j++) {
                 if (j === i) continue;
                 const o = enemies[j];
-                if (!o.alive) continue;
+                if (!o.alive || o.kind === 'boss') continue;
                 const dx = ep.x - o.object.position.x;
                 const dy = ep.y - o.object.position.y;
                 const dz = ep.z - o.object.position.z;
@@ -69,11 +75,22 @@ export class EnemyAI {
             }
             this._sep.multiplyScalar(this.separationStrength);
 
-            this._update(e, target, dt, combat, this._sep);
+            if (e.kind === 'sniper') {
+                this._updateSniper(e, target, dt, combat, this._sep);
+            } else if (e.kind === 'tank') {
+                this._updateTank(e, target, dt, combat, missileSystem, this._sep);
+            } else {
+                this._updateFighter(e, target, dt, combat, this._sep);
+            }
         }
     }
 
-    _update(enemy, target, dt, combat, separation) {
+    /**
+     * Pilotage commun (orbite + boost + visée). Renvoie targetDist + alignment
+     * pour permettre au caller de décider quand/comment tirer. Param `params`
+     * permet d'override les vitesses/turnRate par sous-type.
+     */
+    _drive(enemy, target, dt, separation, params) {
         const ePos = enemy.object.position;
         const tPos = target.object.position;
 
@@ -93,11 +110,11 @@ export class EnemyAI {
 
         this._toTarget.subVectors(tPos, ePos);
         const targetDist = this._toTarget.length();
-        if (targetDist < 0.001) return;
+        if (targetDist < 0.001) return { targetDist, alignment: 0 };
 
         this._mat.lookAt(ePos, tPos, this._up);
         this._desiredQuat.setFromRotationMatrix(this._mat);
-        enemy.object.quaternion.rotateTowards(this._desiredQuat, this.turnRate * dt);
+        enemy.object.quaternion.rotateTowards(this._desiredQuat, params.turnRate * dt);
         this._forward.copy(FORWARD).applyQuaternion(enemy.object.quaternion);
 
         const aimQ = enemy.object.quaternion;
@@ -109,7 +126,7 @@ export class EnemyAI {
         enemy.boostCooldown -= dt;
         if (enemy.boostTime > 0) {
             enemy.boostTime -= dt;
-        } else if (enemy.boostCooldown <= 0 && alignment > this.boostFacingThreshold && targetDist < this.fireRange * 1.6) {
+        } else if (params.allowBoost && enemy.boostCooldown <= 0 && alignment > this.boostFacingThreshold && targetDist < params.fireRange * 1.6) {
             enemy.boostTime = this.boostDuration;
             enemy.boostCooldown = this.boostInterval;
         }
@@ -118,12 +135,12 @@ export class EnemyAI {
         this._desiredVel.set(0, 0, 0);
         if (anchorDist > 0.001) {
             const k = Math.min(1, anchorDist / 30);
-            this._desiredVel.addScaledVector(this._toAnchor, (this.speed * this.anchorWeight * k * boostMul) / anchorDist);
+            this._desiredVel.addScaledVector(this._toAnchor, (params.speed * this.anchorWeight * k * boostMul) / anchorDist);
         }
         this._desiredVel.add(separation);
 
         const desiredSq = this._desiredVel.lengthSq();
-        const maxSpeed = this.speed * 1.4 * boostMul;
+        const maxSpeed = params.speed * 1.4 * boostMul;
         if (desiredSq > maxSpeed * maxSpeed) {
             this._desiredVel.multiplyScalar(maxSpeed / Math.sqrt(desiredSq));
         }
@@ -132,43 +149,153 @@ export class EnemyAI {
         enemy.velocity.lerp(this._desiredVel, 1 - Math.exp(-lerpRate * dt));
         ePos.addScaledVector(enemy.velocity, dt);
 
+        return { targetDist, alignment };
+    }
+
+    _updateFighter(enemy, target, dt, combat, separation) {
+        const { targetDist, alignment } = this._drive(enemy, target, dt, separation, {
+            speed: this.speed,
+            turnRate: this.turnRate,
+            fireRange: this.fireRange,
+            allowBoost: true,
+        });
+
         enemy.fireCooldown -= dt;
-        if (enemy.fireCooldown <= 0 && targetDist < this.fireRange) {
-            if (alignment > this.accuracy) {
-                const projSpeed = this.projectileSpeed;
-                const tFlight = Math.min(targetDist / projSpeed, 2.5);
-                const leadFactor = Math.random() * 0.85;
-                const tv = target.velocity || { x: 0, y: 0, z: 0 };
-                const aimX = tPos.x + tv.x * tFlight * leadFactor;
-                const aimY = tPos.y + tv.y * tFlight * leadFactor;
-                const aimZ = tPos.z + tv.z * tFlight * leadFactor;
+        if (enemy.fireCooldown <= 0 && targetDist < this.fireRange && alignment > this.accuracy) {
+            this._fireBasic(enemy, target, combat, this.projectileSpeed, 6, 0xff5544, 0.02);
+            enemy.fireCooldown = this.fireCooldown;
+        }
+    }
 
-                const muzzle = ePos.clone().addScaledVector(this._forward, 2.2);
-                let dx = aimX - muzzle.x;
-                let dy = aimY - muzzle.y;
-                let dz = aimZ - muzzle.z;
-                const len = Math.hypot(dx, dy, dz) || 1;
-                dx /= len; dy /= len; dz /= len;
+    _updateTank(enemy, target, dt, combat, missileSystem, separation) {
+        const { targetDist, alignment } = this._drive(enemy, target, dt, separation, {
+            speed: this.speed * 0.55,
+            turnRate: this.turnRate * 0.7,
+            fireRange: 180,
+            allowBoost: false,
+        });
 
-                const playerSpeed = Math.hypot(tv.x, tv.y, tv.z);
-                const spread = 0.02 + Math.min(playerSpeed * 0.0009, 0.09);
-                dx += (Math.random() - 0.5) * spread * 2;
-                dy += (Math.random() - 0.5) * spread * 2;
-                dz += (Math.random() - 0.5) * spread * 2;
-                const len2 = Math.hypot(dx, dy, dz) || 1;
-                const dir = new THREE.Vector3(dx / len2, dy / len2, dz / len2);
+        enemy.fireCooldown -= dt;
+        if (enemy.fireCooldown <= 0 && targetDist < 180 && alignment > 0.96) {
+            this._fireBasic(enemy, target, combat, 200, 8, 0xffaa44, 0.05);
+            enemy.fireCooldown = 1.5 + Math.random() * 0.6;
+        }
 
-                combat.spawnProjectile({
-                    position: muzzle,
-                    direction: dir,
-                    speed: projSpeed,
-                    owner: 'enemy',
-                    damage: 6,
-                    color: 0xff5544,
-                    lifetime: 3,
-                });
-                enemy.fireCooldown = this.fireCooldown;
+        enemy.missileCooldown -= dt;
+        if (missileSystem && enemy.missileCooldown <= 0 && targetDist < 240 && alignment > 0.85) {
+            const ePos = enemy.object.position;
+            const muzzle = ePos.clone().addScaledVector(this._forward, 2.5);
+            const dir = this._forward.clone();
+            missileSystem.spawnEnemyMissile({
+                position: muzzle,
+                direction: dir,
+                target,
+                damage: 14,
+            });
+            enemy.missileCooldown = 6 + Math.random() * 3;
+        }
+    }
+
+    _updateSniper(enemy, target, dt, combat, separation) {
+        const { targetDist, alignment } = this._drive(enemy, target, dt, separation, {
+            speed: this.speed * 0.45,
+            turnRate: this.turnRate * 0.55,
+            fireRange: 480,
+            allowBoost: false,
+        });
+
+        const inRange = targetDist < 480;
+
+        if (enemy.charging) {
+            enemy.chargeProgress += dt / enemy.chargeDuration;
+            enemy.updateLaserSight(target.object.position);
+            if (!inRange || alignment < 0.92) {
+                // Si le joueur sort de portée ou de visée pendant la charge, abandonne.
+                enemy.charging = false;
+                enemy.chargeProgress = 0;
+                enemy.hideLaserSight();
+            } else if (enemy.chargeProgress >= 1) {
+                this._fireSniperShot(enemy, target, combat);
+                enemy.charging = false;
+                enemy.chargeProgress = 0;
+                enemy.hideLaserSight();
+                enemy.fireCooldown = 4 + Math.random() * 2;
+            }
+        } else {
+            enemy.fireCooldown -= dt;
+            enemy.hideLaserSight();
+            if (enemy.fireCooldown <= 0 && inRange && alignment > 0.94) {
+                enemy.charging = true;
+                enemy.chargeProgress = 0;
             }
         }
+    }
+
+    _fireBasic(enemy, target, combat, projSpeed, damage, color, baseSpread) {
+        const ePos = enemy.object.position;
+        const tPos = target.object.position;
+        const targetDist = ePos.distanceTo(tPos);
+        const tFlight = Math.min(targetDist / projSpeed, 2.5);
+        const leadFactor = Math.random() * 0.85;
+        const tv = target.velocity || { x: 0, y: 0, z: 0 };
+        const aimX = tPos.x + tv.x * tFlight * leadFactor;
+        const aimY = tPos.y + tv.y * tFlight * leadFactor;
+        const aimZ = tPos.z + tv.z * tFlight * leadFactor;
+
+        const muzzle = ePos.clone().addScaledVector(this._forward, 2.2);
+        let dx = aimX - muzzle.x;
+        let dy = aimY - muzzle.y;
+        let dz = aimZ - muzzle.z;
+        const len = Math.hypot(dx, dy, dz) || 1;
+        dx /= len; dy /= len; dz /= len;
+
+        const playerSpeed = Math.hypot(tv.x, tv.y, tv.z);
+        const spread = baseSpread + Math.min(playerSpeed * 0.0009, 0.09);
+        dx += (Math.random() - 0.5) * spread * 2;
+        dy += (Math.random() - 0.5) * spread * 2;
+        dz += (Math.random() - 0.5) * spread * 2;
+        const len2 = Math.hypot(dx, dy, dz) || 1;
+        const dir = new THREE.Vector3(dx / len2, dy / len2, dz / len2);
+
+        combat.spawnProjectile({
+            position: muzzle,
+            direction: dir,
+            speed: projSpeed,
+            owner: 'enemy',
+            damage,
+            color,
+            lifetime: 3,
+        });
+    }
+
+    _fireSniperShot(enemy, target, combat) {
+        const ePos = enemy.object.position;
+        const tPos = target.object.position;
+        const tv = target.velocity || { x: 0, y: 0, z: 0 };
+        const projSpeed = 220;
+        const dist = ePos.distanceTo(tPos);
+        // Anticipation pleine : le sniper compense vraiment le déplacement
+        // joueur (contrairement aux fighters dont le lead est partiel).
+        const tFlight = Math.min(dist / projSpeed, 3.0);
+        const aimX = tPos.x + tv.x * tFlight;
+        const aimY = tPos.y + tv.y * tFlight;
+        const aimZ = tPos.z + tv.z * tFlight;
+
+        const muzzle = ePos.clone().addScaledVector(this._forward, 2.5);
+        let dx = aimX - muzzle.x;
+        let dy = aimY - muzzle.y;
+        let dz = aimZ - muzzle.z;
+        const len = Math.hypot(dx, dy, dz) || 1;
+        const dir = new THREE.Vector3(dx / len, dy / len, dz / len);
+
+        combat.spawnProjectile({
+            position: muzzle,
+            direction: dir,
+            speed: projSpeed,
+            owner: 'enemy',
+            damage: 20,
+            color: 0xff2266,
+            lifetime: 4,
+        });
     }
 }

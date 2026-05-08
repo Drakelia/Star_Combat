@@ -220,7 +220,7 @@ export class Game {
         this.ship.update(dt);
         for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
 
-        this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat);
+        this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat, this.missiles);
         for (const enemy of this.enemies) {
             if (enemy.alive) enemy.updateTrail();
         }
@@ -270,8 +270,14 @@ export class Game {
                     this.chaseCamera.shake(0.4 + k * 1.4, 0.008 + k * 0.018, 0.3 + k * 0.3);
                 }
                 this.powerups.onEnemyKilled(e.object.position);
+                if (e.kind === 'boss') {
+                    this.effects.spawn(e.object.position, { count: 600, scale: 3, speed: 80, lifetime: 2.4 });
+                    this.sounds.shipDestroyed?.({ volume: 1.4 });
+                    this.chaseCamera.shake(2.0, 0.05, 1.0);
+                }
                 this.sceneManager.scene.remove(e.object);
                 if (e.trail) this.sceneManager.scene.remove(e.trail);
+                if (e.laserSight) this.sceneManager.scene.remove(e.laserSight);
                 e.dispose?.();
                 this.enemies.splice(i, 1);
             }
@@ -611,6 +617,7 @@ export class Game {
         for (const e of this.enemies) {
             scene.remove(e.object);
             if (e.trail) scene.remove(e.trail);
+            if (e.laserSight) scene.remove(e.laserSight);
             e.dispose?.();
         }
         this.enemies.length = 0;

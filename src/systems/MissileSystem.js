@@ -95,38 +95,57 @@ export class MissileSystem {
             m.update(dt);
 
             if (m.alive) {
-                if (m.target && m.target.alive) {
-                    const r = m.target.radius + m.radius;
-                    const distSq = this._segmentDistSq(m.prevPosition, m.position, m.target.object.position);
-                    if (distSq < r * r) {
-                        m.target.takeDamage(m.damage);
-                        this._detonate(m);
-                        if (!m.target.alive) {
-                            this.effects?.spawn(m.target.object.position, { count: 240, scale: 1.6, speed: 50, lifetime: 1.6 });
-                            this.sounds?.shipDestroyed({ volume: 1.0 });
-                        } else {
-                            this.effects?.spawn(m.position, { count: 40, scale: 0.7, speed: 22, lifetime: 0.7 });
-                            this.sounds?.explosion({ volume: 0.35 });
+                if (m.owner === 'enemy') {
+                    if (player.alive) {
+                        const r = 1.6 + m.radius;
+                        const distSq = this._segmentDistSq(m.prevPosition, m.position, player.object.position);
+                        if (distSq < r * r) {
+                            const wasAlive = player.alive;
+                            player.takeDamage(m.damage);
+                            this._detonate(m);
+                            if (!player.alive && wasAlive) {
+                                this.effects?.spawn(player.object.position, { count: 320, scale: 1.9, speed: 55, lifetime: 1.8 });
+                                this.sounds?.shipDestroyed({ volume: 1.15 });
+                            } else {
+                                this.effects?.spawn(m.position, { count: 60, scale: 1.0, speed: 28, lifetime: 0.9 });
+                                this.sounds?.explosion({ volume: 0.5 });
+                            }
                         }
                     }
-                }
-
-                if (m.alive) {
-                    for (const e of enemies) {
-                        if (!e.alive || e === m.target) continue;
-                        const r = e.radius + m.radius * 0.6;
-                        const distSq = this._segmentDistSq(m.prevPosition, m.position, e.object.position);
+                } else {
+                    if (m.target && m.target.alive) {
+                        const r = m.target.radius + m.radius;
+                        const distSq = this._segmentDistSq(m.prevPosition, m.position, m.target.object.position);
                         if (distSq < r * r) {
-                            e.takeDamage(m.damage);
+                            m.target.takeDamage(m.damage);
                             this._detonate(m);
-                            if (!e.alive) {
-                                this.effects?.spawn(e.object.position, { count: 220, scale: 1.5, speed: 48, lifetime: 1.6 });
-                                this.sounds?.shipDestroyed({ volume: 0.95 });
+                            if (!m.target.alive) {
+                                this.effects?.spawn(m.target.object.position, { count: 240, scale: 1.6, speed: 50, lifetime: 1.6 });
+                                this.sounds?.shipDestroyed({ volume: 1.0 });
                             } else {
-                                this.effects?.spawn(m.position, { count: 35, scale: 0.6, speed: 20, lifetime: 0.6 });
-                                this.sounds?.explosion({ volume: 0.3 });
+                                this.effects?.spawn(m.position, { count: 40, scale: 0.7, speed: 22, lifetime: 0.7 });
+                                this.sounds?.explosion({ volume: 0.35 });
                             }
-                            break;
+                        }
+                    }
+
+                    if (m.alive) {
+                        for (const e of enemies) {
+                            if (!e.alive || e === m.target) continue;
+                            const r = e.radius + m.radius * 0.6;
+                            const distSq = this._segmentDistSq(m.prevPosition, m.position, e.object.position);
+                            if (distSq < r * r) {
+                                e.takeDamage(m.damage);
+                                this._detonate(m);
+                                if (!e.alive) {
+                                    this.effects?.spawn(e.object.position, { count: 220, scale: 1.5, speed: 48, lifetime: 1.6 });
+                                    this.sounds?.shipDestroyed({ volume: 0.95 });
+                                } else {
+                                    this.effects?.spawn(m.position, { count: 35, scale: 0.6, speed: 20, lifetime: 0.6 });
+                                    this.sounds?.explosion({ volume: 0.3 });
+                                }
+                                break;
+                            }
                         }
                     }
                 }
@@ -280,6 +299,36 @@ export class MissileSystem {
         for (const [, lock] of this.locks) lock.progress = 0;
         this.cooldown = this.salvoCooldown;
         this.sounds?.missileLaunch?.();
+    }
+
+    /**
+     * Missile ennemi : nettement plus gros, plus lent, peu agile, trail orange
+     * vif. Conçu pour rester visible et restable évitable par le joueur.
+     */
+    spawnEnemyMissile({ position, direction, target, damage = 14 }) {
+        const m = new Missile(this.scene, {
+            position,
+            direction,
+            target,
+            speed: 35,
+            acceleration: 55,
+            maxSpeed: 120,
+            turnRate: 0.8,
+            lifetime: 11,
+            damage,
+            radius: 3.0,
+            trailLength: 380,
+            homingDelay: 1.8,
+            owner: 'enemy',
+            bodyColor: 0xff7733,
+            bodyEmissive: 0x551100,
+            flameColor: 0xffcc55,
+            bodyScale: 1.7,
+            trailGradient: (t) => [1.0 * t, 0.55 * t * t, 0.1 * t * t * t],
+            trailOpacity: 0.95,
+        });
+        this.missiles.push(m);
+        this.sounds?.missileLaunch?.({ volume: 0.6 });
     }
 
     fireFrenzy(player, enemies) {
