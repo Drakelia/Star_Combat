@@ -39,7 +39,7 @@ window.addEventListener('pointerdown', startMenuMusic);
 window.addEventListener('keydown', startMenuMusic);
 
 const GAME_KEYS = new Set([
-    'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyX', 'KeyF', 'KeyT',
+    'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyX', 'KeyF', 'KeyT', 'KeyY',
     'Space', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight',
     'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
 ]);

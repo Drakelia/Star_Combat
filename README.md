@@ -25,7 +25,8 @@ Au lancement, choisissez votre difficulté (**Facile / Normal / Difficile**). El
 | **Souris** | Viser |
 | **Clic gauche** | Tirer |
 | **Clic droit** (maintenu) | Verrouiller des cibles ; relâcher = salve de missiles |
-| **T** | Accrocher la cible la plus proche / cycler vers la suivante |
+| **T** | Accrocher la cible la plus proche du curseur |
+| **Y** | Cycler parmi les cibles, de la plus proche à la plus lointaine (distance vaisseau) |
 | **W / S** | Accélérer / reculer |
 | **X** | Freiner |
 | **A / D** | Roulis gauche / droite |
@@ -75,7 +76,12 @@ Le missile est donc le seul tir qui passe partiellement à travers le bouclier :
 
 ### Cible accrochée (lock-on)
 
-La touche **T** verrouille un ennemi en tant que cible principale (à la *Star Citizen*). Si aucune cible n'est accrochée, l'ennemi vivant le plus proche est sélectionné ; sinon T cycle vers le suivant (par distance croissante). Si la cible meurt ou disparaît, le lock retombe automatiquement sur le plus proche — pas besoin de re-presser T.
+Deux touches gèrent le verrouillage (à la *Star Citizen*) :
+
+- **T** : accroche l'ennemi vivant le plus proche du **curseur** à l'écran. Idéal pour pointer une cible précise au milieu d'un combat.
+- **Y** : cycle parmi les ennemis vivants, du plus proche au plus lointain (distance 3D au vaisseau). Utile pour balayer la scène sans bouger le viseur.
+
+Si la cible meurt ou disparaît, le lock retombe automatiquement sur l'ennemi le plus proche du curseur — pas besoin de re-presser.
 
 Quand une cible est accrochée :
 
@@ -84,7 +90,7 @@ Quand une cible est accrochée :
 - Un panneau d'infos en haut à gauche affiche **nom**, **barre de PV**, **vitesse**, **distance**.
 - Le **réticule de lead** (point d'impact prédit) ne s'affiche plus que sur la cible accrochée, et bénéficie d'un **aim-assist magnétique** : la composante du mouvement de souris qui éloigne le réticule du lead est atténuée — le viseur ne se déplace jamais de lui-même, mais il « colle » légèrement au point d'impact prédit.
 
-Le lock T est purement cosmétique/aim-assist — il n'influence ni le verrouillage des missiles, ni la cadence de tir.
+Le lock T/Y est purement cosmétique/aim-assist — il n'influence ni le verrouillage des missiles, ni la cadence de tir.
 
 ### Armement
 

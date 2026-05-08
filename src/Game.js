@@ -339,7 +339,10 @@ export class Game {
         const mx = this.mouse.x;
         const my = -this.mouse.y;
         if (this.input.consume('KeyT')) {
-            this.targetLock.cycle(this.enemies, this.ship, cam, mx, my);
+            this.targetLock.lockNearestToCursor(this.enemies, cam, mx, my);
+        }
+        if (this.input.consume('KeyY')) {
+            this.targetLock.cycleByShipDistance(this.enemies, this.ship);
         }
         this.targetLock.update(this.enemies, this.ship, cam, mx, my);
 
