@@ -247,15 +247,15 @@ export class EnemyAI {
         const { targetDist, alignment } = this._drive(enemy, target, dt, separation, {
             speed: this.speed * 0.45,
             turnRate: this.turnRate * 0.55,
-            fireRange: 480,
+            fireRange: 720,
             allowBoost: false,
             // Laisse : sniper se déplace lentement mais ne se laisse pas
             // distancer au point de perdre la portée de tir.
-            maxLeash: 420,
+            maxLeash: 630,
             catchupSpeed: 200,
         });
 
-        const inRange = targetDist < 480;
+        const inRange = targetDist < 720;
 
         if (enemy.charging) {
             enemy.chargeProgress += dt / enemy.chargeDuration;
@@ -323,7 +323,7 @@ export class EnemyAI {
         const ePos = enemy.object.position;
         const tPos = target.object.position;
         const tv = target.velocity || { x: 0, y: 0, z: 0 };
-        const projSpeed = 220;
+        const projSpeed = 330;
         const dist = ePos.distanceTo(tPos);
         // Anticipation pleine : le sniper compense vraiment le déplacement
         // joueur (contrairement aux fighters dont le lead est partiel).

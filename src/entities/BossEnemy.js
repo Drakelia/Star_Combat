@@ -14,10 +14,10 @@ const FORWARD = new THREE.Vector3(0, 0, 1);
  */
 
 const TURRET_SPECS = [
-    { kind: 'laser',   pos: [3.5,  1.4, -3], cooldownMax: 0.6,  range: 220 },
-    { kind: 'laser',   pos: [-3.5, 1.4, -3], cooldownMax: 0.7,  range: 220 },
-    { kind: 'laser',   pos: [3.5, -1.4,  3], cooldownMax: 0.65, range: 220 },
-    { kind: 'laser',   pos: [-3.5,-1.4,  3], cooldownMax: 0.75, range: 220 },
+    { kind: 'laser',   pos: [3.5,  1.4, -3], cooldownMax: 0.6,  range: 330 },
+    { kind: 'laser',   pos: [-3.5, 1.4, -3], cooldownMax: 0.7,  range: 330 },
+    { kind: 'laser',   pos: [3.5, -1.4,  3], cooldownMax: 0.65, range: 330 },
+    { kind: 'laser',   pos: [-3.5,-1.4,  3], cooldownMax: 0.75, range: 330 },
     { kind: 'sniper',  pos: [4.5,  0,    0], cooldownMax: 5.0,  range: 500 },
     { kind: 'sniper',  pos: [-4.5, 0,    0], cooldownMax: 5.5,  range: 500 },
     { kind: 'missile', pos: [0,    2.0,  4.5], cooldownMax: 6.5, range: 350 },
