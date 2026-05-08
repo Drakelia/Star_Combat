@@ -333,10 +333,15 @@ export class Game {
         // Cycle de cible (T pressé une fois). Le cycle a lieu *avant*
         // la mise à jour pour qu'une cible fraîchement choisie soit déjà
         // affichée correctement ce frame.
+        const cam = this.sceneManager.camera;
+        // mouse.y est en NDC y-down (top=-1) ; on le re-flippe pour matcher
+        // la convention y-up de THREE.Vector3.project().
+        const mx = this.mouse.x;
+        const my = -this.mouse.y;
         if (this.input.consume('KeyT')) {
-            this.targetLock.cycle(this.enemies, this.ship);
+            this.targetLock.cycle(this.enemies, this.ship, cam, mx, my);
         }
-        this.targetLock.update(this.enemies, this.ship);
+        this.targetLock.update(this.enemies, this.ship, cam, mx, my);
 
         this._updateHud();
         this._updateLockHUD();
