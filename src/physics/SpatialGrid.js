@@ -53,6 +53,36 @@ export class SpatialGrid {
         for (const b of bodies) this.addBody(b);
     }
 
+    removeBody(body) {
+        const p = body.position;
+        if (!p) return;
+        const idx = this.bodies.indexOf(body);
+        if (idx >= 0) this.bodies.splice(idx, 1);
+        const r = body.radius || 0;
+        const ix0 = this._coord(p.x - r);
+        const iy0 = this._coord(p.y - r);
+        const iz0 = this._coord(p.z - r);
+        const ix1 = this._coord(p.x + r);
+        const iy1 = this._coord(p.y + r);
+        const iz1 = this._coord(p.z + r);
+        for (let ix = ix0; ix <= ix1; ix++) {
+            for (let iy = iy0; iy <= iy1; iy++) {
+                for (let iz = iz0; iz <= iz1; iz++) {
+                    const k = this._key(ix, iy, iz);
+                    const bucket = this.cells.get(k);
+                    if (!bucket) continue;
+                    const j = bucket.indexOf(body);
+                    if (j >= 0) bucket.splice(j, 1);
+                    if (bucket.length === 0) this.cells.delete(k);
+                }
+            }
+        }
+    }
+
+    removeBodies(bodies) {
+        for (const b of bodies) this.removeBody(b);
+    }
+
     /**
      * Return all bodies within `radius` of `point`. Deduplicates.
      *

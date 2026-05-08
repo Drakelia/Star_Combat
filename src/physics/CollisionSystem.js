@@ -20,6 +20,16 @@ export class CollisionSystem {
         for (const b of bodies) this.addBody(b);
     }
 
+    removeBody(body) {
+        const i = this.bodies.indexOf(body);
+        if (i >= 0) this.bodies.splice(i, 1);
+        this.grid.removeBody(body);
+    }
+
+    removeBodies(bodies) {
+        for (const b of bodies) this.removeBody(b);
+    }
+
     /** Return bodies near a point. The returned array is reused — copy if you need to keep it. */
     queryPoint(point, radius) {
         this._candidates.length = 0;

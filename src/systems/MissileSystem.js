@@ -22,6 +22,7 @@ export class MissileSystem {
         this.salvoCooldown = 8;
         this.cooldown = 0;
         this.wasLocking = false;
+        this.playerMissilesFired = 0;
 
         this._forward = new THREE.Vector3();
         this._toEnemy = new THREE.Vector3();
@@ -273,6 +274,7 @@ export class MissileSystem {
                 homingDelay: 0.5 + Math.random() * 0.4,
             });
             this.missiles.push(m);
+            this.playerMissilesFired++;
         }
 
         for (const [, lock] of this.locks) lock.progress = 0;
@@ -317,6 +319,7 @@ export class MissileSystem {
                 homingDelay: 0.25 + Math.random() * 0.3,
             });
             this.missiles.push(m);
+            this.playerMissilesFired++;
         }
 
         this.sounds?.missileLaunch?.();

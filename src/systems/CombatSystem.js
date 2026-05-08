@@ -8,12 +8,15 @@ export class CombatSystem {
         this.effects = effects;
         this.projectiles = [];
         this._diff = new THREE.Vector3();
+        this.playerShotsFired = 0;
+        this.playerShotsHit = 0;
     }
 
     spawnProjectile(opts) {
         const p = new Projectile(opts);
         this.scene.add(p.mesh);
         this.projectiles.push(p);
+        if (opts.owner === 'player') this.playerShotsFired++;
 
         if (this.sounds) {
             this.sounds.laser({
@@ -35,6 +38,7 @@ export class CombatSystem {
                         if (this._hits(p, e.object.position, e.radius)) {
                             e.takeDamage(p.damage);
                             p.alive = false;
+                            this.playerShotsHit++;
                             if (e.alive) {
                                 this.effects?.spark(p.position);
                                 this.sounds?.hit();

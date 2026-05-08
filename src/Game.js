@@ -19,6 +19,7 @@ import { PowerupSystem } from './systems/PowerupSystem.js';
 import { POWERUP_TYPES } from './entities/Powerup.js';
 import { HudManager } from './hud/HudManager.js';
 import { SpatialGrid } from './physics/SpatialGrid.js';
+import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
 
 export class Game {
     constructor(canvas) {
@@ -52,7 +53,12 @@ export class Game {
         this._prevLockedCount = 0;
 
         this.gameOver = false;
-        this.stats = { kills: 0 };
+        this.stats = {
+            kills: 0,
+            damageTaken: 0,
+            runTimeSec: 0,
+            powerupsCollected: 0,
+        };
 
         this.hud = new HudManager();
         this.waveBanner = document.getElementById('wave-banner');
@@ -138,9 +144,21 @@ export class Game {
         for (const f of this.asteroidFields) {
             for (const a of f.asteroids) this._allAsteroids.push(a);
         }
-        // Build a static obstacle grid once. Cell sized to roughly cover the largest asteroid.
+        // Obstacle grid : initialement peuplée avec les champs créés ci-dessus,
+        // puis maintenue par le streamer au fur et à mesure que les champs sont
+        // recyclés. Reste "quasi-statique" du point de vue par-frame : aucun
+        // corps mobile n'y est inséré, et les ajouts/retraits arrivent au pire
+        // toutes les `checkInterval` secondes.
         this._obstacleGrid = new SpatialGrid(120);
         this._obstacleGrid.addBodies(this._allAsteroids);
+
+        this.streamer = new AsteroidStreamer({
+            scene,
+            obstacleGrid: this._obstacleGrid,
+            collisions: this.collisions,
+            allAsteroids: this._allAsteroids,
+            fields: this.asteroidFields,
+        });
 
         this.starfield = new Starfield({ count: 4000, radius: 5000 });
         scene.add(this.starfield.points);
@@ -196,6 +214,8 @@ export class Game {
             return;
         }
 
+        this.stats.runTimeSec += dt;
+
         this.shipController.update(dt);
         this.ship.update(dt);
         for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
@@ -214,10 +234,13 @@ export class Game {
             obstacles,
             obstacleGrid,
         });
-        if (this.ship.alive && this.ship.hp < hpBefore) {
+        if (this.ship.hp < hpBefore) {
             const damage = hpBefore - this.ship.hp;
-            const amp = Math.min(1.4, 0.35 + damage * 0.06);
-            this.chaseCamera.shake(amp, 0.012 + damage * 0.001, 0.35);
+            this.stats.damageTaken += damage;
+            if (this.ship.alive) {
+                const amp = Math.min(1.4, 0.35 + damage * 0.06);
+                this.chaseCamera.shake(amp, 0.012 + damage * 0.001, 0.35);
+            }
         }
 
         const isLockHeld = !!(this.mouse && this.mouse.locking);
@@ -258,6 +281,7 @@ export class Game {
 
         this.collisions.resolveShip(this.ship, 1.5, 0.3);
         this.effects.update(dt);
+        this.streamer.update(dt, this.ship.object.position);
         this.waveManager.update(dt, this.ship);
         if (this.waveManager.justAdvanced) this._flashWaveBanner();
         this.chaseCamera.update(dt);
@@ -520,6 +544,7 @@ export class Game {
     }
 
     _applyPowerup(type) {
+        this.stats.powerupsCollected += 1;
         const ship = this.ship;
         if (type === 'repair') {
             ship.hp = Math.min(ship.maxHp, ship.hp + 40);
@@ -553,10 +578,28 @@ export class Game {
         this.music.playDefeat();
         const overlay = document.getElementById('defeat-overlay');
         if (!overlay) return;
-        const killsEl = document.getElementById('defeat-kills');
-        const waveEl = document.getElementById('defeat-wave');
-        if (killsEl) killsEl.textContent = this.stats.kills;
-        if (waveEl) waveEl.textContent = this.waveManager.wave;
+
+        const fired = this.combat.playerShotsFired;
+        const hit = this.combat.playerShotsHit;
+        const accuracy = fired > 0 ? Math.round((hit / fired) * 100) : 0;
+        const t = Math.max(0, this.stats.runTimeSec);
+        const mm = Math.floor(t / 60);
+        const ss = Math.floor(t % 60);
+        const timeStr = `${mm}:${ss.toString().padStart(2, '0')}`;
+
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        set('defeat-wave', this.waveManager.wave);
+        set('defeat-kills', this.stats.kills);
+        set('defeat-time', timeStr);
+        set('defeat-shots', `${hit} / ${fired}`);
+        set('defeat-accuracy', `${accuracy}%`);
+        set('defeat-missiles', this.missiles.playerMissilesFired);
+        set('defeat-damage', Math.round(this.stats.damageTaken));
+        set('defeat-powerups', this.stats.powerupsCollected);
+
         overlay.classList.add('show');
         const btn = document.getElementById('defeat-restart');
         if (btn) btn.onclick = () => this.restart();
@@ -615,6 +658,12 @@ export class Game {
         this.waveManager.justAdvanced = false;
 
         this.stats.kills = 0;
+        this.stats.damageTaken = 0;
+        this.stats.runTimeSec = 0;
+        this.stats.powerupsCollected = 0;
+        this.combat.playerShotsFired = 0;
+        this.combat.playerShotsHit = 0;
+        this.missiles.playerMissilesFired = 0;
         this.gameOver = false;
         this._wasLockHeld = false;
         this._prevLockedCount = 0;
