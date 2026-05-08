@@ -6,13 +6,13 @@ export class MusicManager {
     } = {}) {
         this.menu = new Audio(menuSrc);
         this.menu.loop = true;
-        this.menu.volume = 0.5;
+        this.menu.volume = 1;
         this.game = new Audio(gameSrc);
         this.game.loop = true;
-        this.game.volume = 0.35;
+        this.game.volume = 0.5;
         this.defeat = new Audio(defeatSrc);
         this.defeat.loop = true;
-        this.defeat.volume = 0.5;
+        this.defeat.volume = 0.4;
         this.current = null;
 
         for (const a of [this.menu, this.game, this.defeat]) {
