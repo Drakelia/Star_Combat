@@ -268,12 +268,134 @@ html, body {
     opacity: 1;
 }
 
-#enemy-overlay {
+#lock-overlay {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 7;
     overflow: hidden;
+}
+#lock-frame {
+    position: absolute;
+    left: 0; top: 0;
+    width: 0; height: 0;
+    transform: translate(-9999px, -9999px);
+    will-change: transform, width, height;
+    display: none;
+}
+#lock-frame.visible { display: block; }
+.lock-bracket {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 1.6px solid rgba(255, 200, 80, 0.95);
+    box-shadow: 0 0 6px rgba(255, 180, 60, 0.6);
+}
+.lock-bracket.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+.lock-bracket.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+.lock-bracket.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+.lock-bracket.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+.lock-distance {
+    position: absolute;
+    left: 50%;
+    bottom: -22px;
+    transform: translateX(-50%);
+    color: #ffd27a;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+}
+.lock-name {
+    position: absolute;
+    left: 50%;
+    top: -22px;
+    transform: translateX(-50%);
+    color: #ffe6b8;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+    white-space: nowrap;
+}
+#lock-arrow {
+    position: absolute;
+    left: 0; top: 0;
+    width: 28px;
+    height: 36px;
+    background: rgba(255, 200, 80, 0.95);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    filter: drop-shadow(0 0 6px rgba(255, 180, 60, 0.85));
+    transform: translate(-9999px, -9999px);
+    will-change: transform;
+    display: none;
+}
+#lock-arrow.visible { display: block; }
+
+#target-info {
+    position: fixed;
+    left: 24px;
+    top: 24px;
+    min-width: 220px;
+    padding: 10px 14px;
+    background: rgba(10, 20, 40, 0.55);
+    border: 1px solid rgba(255, 200, 100, 0.45);
+    border-radius: 4px;
+    color: #ffe6b8;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    box-shadow: 0 0 14px rgba(255, 180, 60, 0.18);
+    backdrop-filter: blur(2px);
+    z-index: 11;
+    display: none;
+}
+#target-info.visible { display: block; }
+#target-info .ti-name {
+    color: #ffd27a;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 6px rgba(255, 180, 60, 0.5);
+}
+#target-info .ti-bar {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: rgba(40, 20, 10, 0.5);
+    border: 1px solid rgba(255, 200, 100, 0.45);
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+#target-info .ti-bar-fill {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: linear-gradient(90deg, rgba(255, 100, 80, 0.7), rgba(255, 180, 60, 0.95));
+    box-shadow: inset 0 0 6px rgba(255, 160, 60, 0.5);
+    transform-origin: left;
+    transform: scaleX(1);
+    transition: transform 0.12s linear;
+}
+#target-info .ti-rows {
+    display: flex;
+    gap: 16px;
+}
+#target-info .ti-row {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+#target-info .ti-label {
+    color: #c79a4f;
+    letter-spacing: 2px;
+    font-size: 10px;
+}
+#target-info .ti-val {
+    color: #ffe6b8;
+    font-weight: 700;
+    letter-spacing: 1px;
 }
 
 #lead-overlay {
@@ -305,26 +427,6 @@ html, body {
     will-change: transform, width;
     box-shadow: 0 0 3px rgba(255, 200, 80, 0.5);
 }
-.enemy-marker-wrap {
-    position: absolute;
-    left: 0; top: 0;
-    will-change: transform;
-}
-.enemy-marker {
-    width: 12px;
-    height: 12px;
-    border: 1.4px solid rgba(255, 80, 80, 0.9);
-    box-shadow: 0 0 4px rgba(255, 60, 60, 0.6);
-    transform: rotate(45deg);
-}
-.enemy-arrow {
-    width: 14px;
-    height: 18px;
-    background: rgba(255, 70, 70, 0.92);
-    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
-    filter: drop-shadow(0 0 3px rgba(255, 60, 60, 0.8));
-}
-
 #crosshair-center {
     position: fixed;
     left: 50%;

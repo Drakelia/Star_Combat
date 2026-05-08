@@ -21,6 +21,7 @@ import { HudManager } from './hud/HudManager.js';
 import { SpatialGrid } from './physics/SpatialGrid.js';
 import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
 import { PauseManager } from './systems/PauseManager.js';
+import { TargetLock, enemyLabel } from './systems/TargetLock.js';
 
 export class Game {
     constructor(canvas) {
@@ -71,10 +72,16 @@ export class Game {
             onShowMenu: () => this.returnToMenu(),
         });
 
-        this.enemyOverlay = document.getElementById('enemy-overlay');
         this.leadOverlay = document.getElementById('lead-overlay');
-        this._markerPool = [];
         this._leadPool = [];
+
+        this.targetLock = new TargetLock();
+        this.lockFrameEl = document.getElementById('lock-frame');
+        this.lockArrowEl = document.getElementById('lock-arrow');
+        this.lockNameEl = this.lockFrameEl ? this.lockFrameEl.querySelector('.lock-name') : null;
+        this.lockDistanceEl = this.lockFrameEl ? this.lockFrameEl.querySelector('.lock-distance') : null;
+        this.targetInfoEl = document.getElementById('target-info');
+        this._lockCache = { name: null, distBucket: null, framePx: null, arrowPx: null };
         this.projectileSpeed = 380;
         this.projectileLifetime = 2.2;
         this.aimDistance = 1500;
@@ -323,8 +330,16 @@ export class Game {
             this.sounds.setEngineThrust(this.ship.thrust);
         }
 
+        // Cycle de cible (T pressé une fois). Le cycle a lieu *avant*
+        // la mise à jour pour qu'une cible fraîchement choisie soit déjà
+        // affichée correctement ce frame.
+        if (this.input.consume('KeyT')) {
+            this.targetLock.cycle(this.enemies, this.ship);
+        }
+        this.targetLock.update(this.enemies, this.ship);
+
         this._updateHud();
-        this._updateEnemyMarkers();
+        this._updateLockHUD();
         this._updateLeadIndicators();
 
         this.sceneManager.render();
@@ -341,8 +356,26 @@ export class Game {
         });
     }
 
-    _updateEnemyMarkers() {
-        if (!this.enemyOverlay) return;
+    /**
+     * HUD du verrouillage de cible : carré à coins autour de la cible (à
+     * l'écran) ou flèche directionnelle agrandie (hors écran), plus le
+     * panneau d'infos top-left. Tout est fait en NDC, sans allocation.
+     */
+    _updateLockHUD() {
+        const target = this.targetLock.target;
+        const frame = this.lockFrameEl;
+        const arrow = this.lockArrowEl;
+        const info = this.targetInfoEl;
+
+        if (!target || !target.alive) {
+            if (frame && frame.classList.contains('visible')) frame.classList.remove('visible');
+            if (arrow && arrow.classList.contains('visible')) arrow.classList.remove('visible');
+            if (info && info.classList.contains('visible')) info.classList.remove('visible');
+            this._lockCache.name = null;
+            this._lockCache.distBucket = null;
+            return;
+        }
+
         const cam = this.sceneManager.camera;
         const w = window.innerWidth;
         const h = window.innerHeight;
@@ -353,77 +386,105 @@ export class Game {
         const right = this._tmpRight.set(1, 0, 0).applyQuaternion(cam.quaternion);
         const up = this._tmpUp.set(0, 1, 0).applyQuaternion(cam.quaternion);
 
-        while (this._markerPool.length < this.enemies.length) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'enemy-marker-wrap';
-            const dot = document.createElement('div');
-            dot.className = 'enemy-marker';
-            const arrow = document.createElement('div');
-            arrow.className = 'enemy-arrow';
-            wrapper.appendChild(dot);
-            wrapper.appendChild(arrow);
-            wrapper.style.display = 'none';
-            this.enemyOverlay.appendChild(wrapper);
-            this._markerPool.push({ wrapper, dot, arrow });
+        const offset = this._tmpVec.copy(target.object.position).sub(cam.position);
+        const fwdDot = offset.dot(forward);
+        const sxView = offset.dot(right);
+        const syView = offset.dot(up);
+        const isBehind = fwdDot <= 0;
+        const ndc = this._tmpNdc.copy(target.object.position).project(cam);
+        const onScreen = !isBehind && Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1;
+
+        const distance = target.object.position.distanceTo(this.ship.object.position);
+
+        // Panneau info top-left
+        if (info) {
+            if (!info.classList.contains('visible')) info.classList.add('visible');
+            const name = enemyLabel(target);
+            if (this._lockCache.name !== name) {
+                const nameEl = info.querySelector('.ti-name');
+                if (nameEl) nameEl.textContent = name;
+                this._lockCache.name = name;
+            }
+            const fillEl = info.querySelector('.ti-bar-fill');
+            if (fillEl) {
+                const ratio = Math.max(0, Math.min(1, target.hp / target.maxHp));
+                const bucket = Math.round(ratio * 100);
+                if (this._lockCache.hpBucket !== bucket) {
+                    fillEl.style.transform = `scaleX(${(bucket / 100).toFixed(2)})`;
+                    this._lockCache.hpBucket = bucket;
+                }
+            }
+            const speedEl = info.querySelector('.ti-speed');
+            const speedVal = target.velocity.length().toFixed(0);
+            if (this._lockCache.speedTxt !== speedVal && speedEl) {
+                speedEl.textContent = speedVal;
+                this._lockCache.speedTxt = speedVal;
+            }
+            const distEl = info.querySelector('.ti-dist');
+            const distVal = distance < 1000 ? distance.toFixed(0) : (distance / 1000).toFixed(1) + 'k';
+            if (this._lockCache.distTxt !== distVal && distEl) {
+                distEl.textContent = distVal;
+                this._lockCache.distTxt = distVal;
+            }
         }
 
-        const margin = 28;
-        const halfW = cx - margin;
-        const halfH = cy - margin;
+        if (onScreen) {
+            // Taille du cadre proportionnelle au rayon perçu à l'écran :
+            // sizePx ≈ (radius / dist) * h / tan(fov/2).
+            const dist = offset.length();
+            const halfFovTan = Math.tan((cam.fov * Math.PI / 180) * 0.5);
+            const targetSize = (target.radius * 2.4 / Math.max(0.001, dist)) * h / Math.max(0.001, halfFovTan);
+            const size = Math.max(56, Math.min(240, targetSize));
 
-        for (let i = 0; i < this._markerPool.length; i++) {
-            const item = this._markerPool[i];
-            if (i >= this.enemies.length || !this.enemies[i].alive) {
-                if (item.wrapper.style.display !== 'none') item.wrapper.style.display = 'none';
-                continue;
-            }
-            const enemy = this.enemies[i];
+            const px = (ndc.x * 0.5 + 0.5) * w;
+            const py = (-ndc.y * 0.5 + 0.5) * h;
 
-            const offset = this._tmpVec.copy(enemy.object.position).sub(cam.position);
-            const fwdDot = offset.dot(forward);
-            const sxView = offset.dot(right);
-            const syView = offset.dot(up);
-            const isBehind = fwdDot <= 0;
+            if (frame) {
+                if (!frame.classList.contains('visible')) frame.classList.add('visible');
+                frame.style.width = size + 'px';
+                frame.style.height = size + 'px';
+                frame.style.transform = `translate(${px - size / 2}px, ${py - size / 2}px)`;
 
-            const ndcVec = this._tmpNdc.copy(enemy.object.position).project(cam);
-            const onScreen = !isBehind && Math.abs(ndcVec.x) <= 1 && Math.abs(ndcVec.y) <= 1;
-
-            item.wrapper.style.display = 'block';
-
-            if (onScreen) {
-                const px = (ndcVec.x * 0.5 + 0.5) * w;
-                const py = (-ndcVec.y * 0.5 + 0.5) * h;
-                item.dot.style.display = 'block';
-                item.arrow.style.display = 'none';
-                item.wrapper.style.transform = `translate(${px}px, ${py}px) translate(-50%, -50%)`;
-            } else {
-                let sdx = sxView;
-                let sdy = -syView;
-                const len = Math.hypot(sdx, sdy);
-                if (len < 0.0001) { sdx = 0; sdy = -1; }
-                else { sdx /= len; sdy /= len; }
-
-                const tX = sdx === 0 ? Infinity : halfW / Math.abs(sdx);
-                const tY = sdy === 0 ? Infinity : halfH / Math.abs(sdy);
-                const t = Math.min(tX, tY);
-                const px = cx + sdx * t;
-                const py = cy + sdy * t;
-
-                let outDist;
-                if (!isBehind) {
-                    outDist = Math.max(Math.abs(ndcVec.x), Math.abs(ndcVec.y)) - 1;
-                } else {
-                    const norm = offset.length();
-                    const cosAng = norm > 0 ? fwdDot / norm : -1;
-                    outDist = 1.5 - cosAng * 0.5;
+                const distTxt = (distance < 1000)
+                    ? distance.toFixed(0) + ' m'
+                    : (distance / 1000).toFixed(2) + ' km';
+                if (this._lockCache.frameDist !== distTxt && this.lockDistanceEl) {
+                    this.lockDistanceEl.textContent = distTxt;
+                    this._lockCache.frameDist = distTxt;
                 }
-                const scale = Math.max(0.7, Math.min(2.4, 0.7 + outDist * 0.55));
-                const angle = Math.atan2(sdx, -sdy);
+                const lbl = enemyLabel(target);
+                if (this._lockCache.frameName !== lbl && this.lockNameEl) {
+                    this.lockNameEl.textContent = lbl;
+                    this._lockCache.frameName = lbl;
+                }
+            }
+            if (arrow && arrow.classList.contains('visible')) arrow.classList.remove('visible');
+        } else {
+            // Flèche directionnelle bord d'écran (grande version réservée
+            // à la cible lockée).
+            if (frame && frame.classList.contains('visible')) frame.classList.remove('visible');
 
-                item.dot.style.display = 'none';
-                item.arrow.style.display = 'block';
-                item.wrapper.style.transform =
-                    `translate(${px}px, ${py}px) translate(-50%, -50%) rotate(${angle}rad) scale(${scale})`;
+            const margin = 56;
+            const halfW = cx - margin;
+            const halfH = cy - margin;
+
+            let sdx = sxView;
+            let sdy = -syView;
+            const len = Math.hypot(sdx, sdy);
+            if (len < 0.0001) { sdx = 0; sdy = -1; }
+            else { sdx /= len; sdy /= len; }
+
+            const tX = sdx === 0 ? Infinity : halfW / Math.abs(sdx);
+            const tY = sdy === 0 ? Infinity : halfH / Math.abs(sdy);
+            const t = Math.min(tX, tY);
+            const px = cx + sdx * t;
+            const py = cy + sdy * t;
+            const angle = Math.atan2(sdx, -sdy);
+
+            if (arrow) {
+                if (!arrow.classList.contains('visible')) arrow.classList.add('visible');
+                arrow.style.transform =
+                    `translate(${px}px, ${py}px) translate(-50%, -50%) rotate(${angle}rad) scale(1.6)`;
             }
         }
     }
@@ -705,6 +766,7 @@ export class Game {
         this.missiles.playerMissilesFired = 0;
         this._wasLockHeld = false;
         this._prevLockedCount = 0;
+        this.targetLock?.clear();
     }
 
     _flashWaveBanner() {
