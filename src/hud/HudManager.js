@@ -21,6 +21,18 @@ export class HudManager {
         this.boostVignetteEl = document.getElementById('boost-vignette');
         this.shieldHitEl = document.getElementById('shield-hit');
         this.shieldBarEl = document.getElementById('shield-bar');
+        this.defeatOverlayEl = document.getElementById('defeat-overlay');
+        this.defeatFieldEls = {
+            wave: document.getElementById('defeat-wave'),
+            kills: document.getElementById('defeat-kills'),
+            time: document.getElementById('defeat-time'),
+            shots: document.getElementById('defeat-shots'),
+            accuracy: document.getElementById('defeat-accuracy'),
+            missiles: document.getElementById('defeat-missiles'),
+            damage: document.getElementById('defeat-damage'),
+            powerups: document.getElementById('defeat-powerups'),
+        };
+        this.defeatRestartBtnEl = document.getElementById('defeat-restart');
         this.shieldSegEls = this.shieldBarEl
             ? Array.from(this.shieldBarEl.querySelectorAll('.hud-shield-seg'))
             : [];
@@ -115,6 +127,36 @@ export class HudManager {
         this._updateBuffs(ship);
         this._updateShieldBar(ship);
         this._updateDamageVignette(ship, hpRatio);
+    }
+
+    /**
+     * Affiche l'overlay de défaite avec le récap de run. Centralise toutes
+     * les écritures DOM de cet écran (`Game.js` ne touche plus au HUD).
+     */
+    showDefeat({ wave, kills, runTimeSec, shotsFired, shotsHit, missilesFired, damageTaken, powerupsCollected }, onRestart) {
+        if (!this.defeatOverlayEl) return;
+        const accuracy = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
+        const t = Math.max(0, runTimeSec);
+        const mm = Math.floor(t / 60);
+        const ss = Math.floor(t % 60);
+        const timeStr = `${mm}:${ss.toString().padStart(2, '0')}`;
+
+        const f = this.defeatFieldEls;
+        if (f.wave) f.wave.textContent = wave;
+        if (f.kills) f.kills.textContent = kills;
+        if (f.time) f.time.textContent = timeStr;
+        if (f.shots) f.shots.textContent = `${shotsHit} / ${shotsFired}`;
+        if (f.accuracy) f.accuracy.textContent = `${accuracy}%`;
+        if (f.missiles) f.missiles.textContent = missilesFired;
+        if (f.damage) f.damage.textContent = Math.round(damageTaken);
+        if (f.powerups) f.powerups.textContent = powerupsCollected;
+
+        this.defeatOverlayEl.classList.add('show');
+        if (this.defeatRestartBtnEl) this.defeatRestartBtnEl.onclick = onRestart;
+    }
+
+    hideDefeat() {
+        if (this.defeatOverlayEl) this.defeatOverlayEl.classList.remove('show');
     }
 
     _updateShieldBar(ship) {

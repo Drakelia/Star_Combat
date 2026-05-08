@@ -51,6 +51,10 @@ export class BossEnemy extends Enemy {
         this._tmpForward = new THREE.Vector3();
         this._aimPoint = new THREE.Vector3();
         this._desiredQuat = new THREE.Quaternion();
+        // Réutilisés par _muzzleAndDir / _updateLaserSight pour éviter les
+        // allocations par-frame (sniper qui charge) et par-tir (8 tourelles).
+        this._muzzleVec = new THREE.Vector3();
+        this._dirVec = new THREE.Vector3();
         this._mat = new THREE.Matrix4();
         this._up = new THREE.Vector3(0, 1, 0);
 
@@ -291,9 +295,9 @@ export class BossEnemy extends Enemy {
     }
 
     _muzzleAndDir(turret) {
-        const muzzle = turret.group.getWorldPosition(new THREE.Vector3());
+        const muzzle = turret.group.getWorldPosition(this._muzzleVec);
         turret.group.getWorldQuaternion(this._tmpQuat);
-        const dir = FORWARD.clone().applyQuaternion(this._tmpQuat);
+        const dir = this._dirVec.copy(FORWARD).applyQuaternion(this._tmpQuat);
         return { muzzle, dir };
     }
 
@@ -342,7 +346,7 @@ export class BossEnemy extends Enemy {
     }
 
     _updateLaserSight(turret, target) {
-        const muzzle = turret.group.getWorldPosition(new THREE.Vector3());
+        const muzzle = turret.group.getWorldPosition(this._muzzleVec);
         const tPos = target.object.position;
         const arr = this.laserSight.geometry.attributes.position.array;
         arr[0] = muzzle.x; arr[1] = muzzle.y; arr[2] = muzzle.z;

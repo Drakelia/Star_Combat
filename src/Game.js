@@ -589,33 +589,16 @@ export class Game {
         this.gameOver = true;
         this.sounds.stopEngine();
         this.music.playDefeat();
-        const overlay = document.getElementById('defeat-overlay');
-        if (!overlay) return;
-
-        const fired = this.combat.playerShotsFired;
-        const hit = this.combat.playerShotsHit;
-        const accuracy = fired > 0 ? Math.round((hit / fired) * 100) : 0;
-        const t = Math.max(0, this.stats.runTimeSec);
-        const mm = Math.floor(t / 60);
-        const ss = Math.floor(t % 60);
-        const timeStr = `${mm}:${ss.toString().padStart(2, '0')}`;
-
-        const set = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = value;
-        };
-        set('defeat-wave', this.waveManager.wave);
-        set('defeat-kills', this.stats.kills);
-        set('defeat-time', timeStr);
-        set('defeat-shots', `${hit} / ${fired}`);
-        set('defeat-accuracy', `${accuracy}%`);
-        set('defeat-missiles', this.missiles.playerMissilesFired);
-        set('defeat-damage', Math.round(this.stats.damageTaken));
-        set('defeat-powerups', this.stats.powerupsCollected);
-
-        overlay.classList.add('show');
-        const btn = document.getElementById('defeat-restart');
-        if (btn) btn.onclick = () => this.restart();
+        this.hud.showDefeat({
+            wave: this.waveManager.wave,
+            kills: this.stats.kills,
+            runTimeSec: this.stats.runTimeSec,
+            shotsFired: this.combat.playerShotsFired,
+            shotsHit: this.combat.playerShotsHit,
+            missilesFired: this.missiles.playerMissilesFired,
+            damageTaken: this.stats.damageTaken,
+            powerupsCollected: this.stats.powerupsCollected,
+        }, () => this.restart());
     }
 
     restart() {
@@ -684,8 +667,7 @@ export class Game {
         this._wasLockHeld = false;
         this._prevLockedCount = 0;
 
-        const overlay = document.getElementById('defeat-overlay');
-        if (overlay) overlay.classList.remove('show');
+        this.hud.hideDefeat();
 
         this.beginRun(this.waveManager.difficultyMultiplier ?? 1);
     }
