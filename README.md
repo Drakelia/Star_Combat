@@ -44,10 +44,10 @@ Le jeu fonctionne par **vagues** :
 
 La composition évolue avec la vague :
 
-- **Vague 1+** : Fighters — chasseurs rapides, harcèlement.
-- **Vague 3+** : Snipers — tireurs longue portée ; leur tir vide tout le bouclier d'un coup.
-- **Vague 5+** : Tanks — gros PV, lents, dégâts élevés.
-- **Vague 5, 10, 15…** : Boss avec tourelles et escorte.
+- **Vague 1+** : **Fighters** — chasseurs agiles, harcèlent au laser, esquivent les astéroïdes.
+- **Vague 3+** : **Snipers** — tireurs longue portée. Leur tir vide tout le bouclier d'un coup, ou inflige de gros dégâts si le bouclier est déjà tombé. Une ligne laser rouge avertit avant le tir.
+- **Vague 5+** : **Tanks** — gros PV, lents, dégâts élevés au contact.
+- **Vague 5, 10, 15…** : **Boss** plus grands, plusieurs centaines de PV, équipés de **8 tourelles** indépendantes (lasers, snipers, missiles), accompagnés d'une escorte de fighters/snipers/tanks. À partir de la vague 10, plusieurs boss simultanés.
 
 Les PV des ennemis et leur nombre montent à chaque vague.
 
@@ -56,16 +56,29 @@ Les PV des ennemis et leur nombre montent à chaque vague.
 ### Vaisseau du joueur
 
 - **Coque** (HP) : barre principale en bas à gauche. À zéro → game over.
-- **Bouclier** segmenté façon FTL : 3 segments qui absorbent chacun un tir laser. Après un impact, attente d'1 s puis recharge d'un segment toutes les 3 s. Un tir de **sniper** vide tout le bouclier d'un coup.
-- **Boost** : `Shift` consomme la réserve pour augmenter fortement la vitesse.
+- **Bouclier** segmenté façon FTL : 3 segments. Après tout impact, attente d'**1 s** avant la reprise, puis recharge d'**un segment toutes les 3 s** (la barre du HUD montre la progression du prochain segment).
+- **Boost** : `Shift` consomme la réserve (jusqu'à 180 s) pour augmenter fortement la vitesse. Une vignette à l'écran indique le boost actif.
+
+#### Comportement du bouclier face aux dégâts
+
+| Type d'impact | Bouclier actif | Bouclier vide |
+|---|---|---|
+| **Laser** | −1 segment, 0 dégât coque, flash cyan | dégât plein, flash rouge |
+| **Sniper** | wipe complet (tous les segments d'un coup), 0 dégât coque, flash cyan | idem |
+| **Missile** | −2 segments, dégât **÷2** sur la coque, flashs cyan + rouge | idem |
+| **Powerup invincibilité** | tout est ignoré, recharge continue en arrière-plan | idem |
+| **Astéroïde** | bouclier non concerné — collision physique pure | idem |
+
+Le missile est donc le seul tir qui passe partiellement à travers le bouclier : il « croque » 2 segments et laisse quand même la moitié de ses dégâts arriver sur la coque. Inversement, le sniper est neutralisé à 100 % tant qu'il reste au moins un segment, mais dévaste si le bouclier est tombé.
 
 ### Armement
 
-- **Canon laser** (clic gauche) : tir rapide, dégâts modérés. Les projectiles ont une vitesse finie → il faut anticiper le mouvement de la cible (un réticule de **lead** s'affiche).
+- **Canon laser** (clic gauche) : tir rapide à projectiles à vitesse finie. Il faut anticiper le mouvement de la cible — un réticule de **lead** s'affiche sur la cible visée pour montrer le point d'impact prédit. Le tir alterne entre plusieurs canons (muzzles).
 - **Missiles à verrouillage** (clic droit) :
-  - Maintenir le clic droit balaye les ennemis devant vous et les verrouille un à un (compteur **CIBLES** au HUD).
-  - Relâcher tire une **salve** : un missile par cible verrouillée.
-  - Cooldown affiché à côté de **MSL**.
+  - **Maintenir** clic droit balaye le viseur sur les ennemis devant vous et les verrouille un à un (compteur **CIBLES** au HUD, son d'accroche à chaque verrou).
+  - **Relâcher** tire une **salve** : un missile par cible verrouillée. Les missiles poursuivent leur cible et explosent à l'impact ou à proximité.
+  - Le powerup **Salve massive** augmente le nombre de missiles tirés par cible.
+  - Cooldown affiché à côté de **MSL** au HUD.
 
 ### Powerups
 

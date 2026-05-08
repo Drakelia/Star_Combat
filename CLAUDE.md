@@ -81,6 +81,26 @@ Avant de proposer un changement, vérifie :
 4. Les trails passent par `TrailLine`.
 5. `Game.js` ne grossit pas — si oui, extraire.
 
+## Documentation joueur — README.md
+
+Le [README.md](README.md) est la doc orientée **joueur** (pitch, commandes, mécaniques, vagues, powerups, comportement du bouclier, HUD, stack technique). Il doit rester synchro avec le gameplay réel.
+
+**Mets à jour le README à chaque fois que tu touches à :**
+- Une commande / un binding clavier ou souris (dans `index.html`, `main.js`, `InputManager.js`, `ShipController.js`).
+- Le comportement du bouclier (`ShieldState.js`, `Ship.takeDamage`) — la table « Comportement du bouclier face aux dégâts » du README doit refléter exactement la logique de routage par type (laser / sniper / missile / invincibilité / astéroïde).
+- L'arsenal du joueur (canon, missiles, lock-on, salves) ou les paramètres affichés (vitesse, cooldowns, lead).
+- La progression des vagues ou la composition (`WaveManager.js`) : seuils d'apparition Sniper/Tank, vagues de boss, nombre de boss simultanés.
+- Les types de **powerups** ou leurs effets (`Powerup.js`, `PowerupSystem.js`).
+- Le HUD visible (champs, barres, vignettes, marqueurs hors champ).
+- La stack ou la manière de lancer le jeu (importmap, version Three.js, dépendances de service).
+
+Quand tu changes une de ces zones :
+1. Fais le changement de code.
+2. Relis la section correspondante du README et corrige-la.
+3. Si tu ajoutes une mécanique nouvelle (ex. nouvelle arme, nouveau type d'ennemi, nouveau powerup), ajoute-la dans la bonne section du README plutôt que de créer une nouvelle section éparse.
+
+À l'inverse, **ne mets pas dans le README** des détails purement internes (chemins de fichiers, conventions de perf, anti-patterns) — ceux-ci vivent ici, dans CLAUDE.md.
+
 ## Audit régulier
 
 Lance `/audit` pour faire un passage rapide sur les régressions de perf et la
