@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { Enemy } from './Enemy.js';
 
-const FORWARD = new THREE.Vector3(0, 0, -1);
+// Object3D.lookAt() oriente le +Z local vers la cible pour les objets non-camera.
+// (Matrix4.lookAt utilise l'autre convention, c'est pourquoi le boss lui-même
+// utilise -Z — voir tick().) Les tourelles passent par Object3D.lookAt → +Z.
+const FORWARD = new THREE.Vector3(0, 0, 1);
 
 /**
  * Vaisseau-boss. Bouge lentement, garde une distance moyenne, et porte
@@ -122,7 +125,7 @@ export class BossEnemy extends Enemy {
                     : new THREE.CylinderGeometry(0.16, 0.22, 1.4, 6);
             if (spec.kind !== 'missile') barrelGeo.rotateX(Math.PI / 2);
             const barrel = new THREE.Mesh(barrelGeo, mat);
-            barrel.position.z = -(spec.kind === 'sniper' ? 1.1 : 0.7);
+            barrel.position.z = (spec.kind === 'sniper' ? 1.1 : 0.7);
             group.add(barrel);
 
             this.object.add(group);
@@ -245,8 +248,6 @@ export class BossEnemy extends Enemy {
 
     _muzzleAndDir(turret) {
         const muzzle = turret.group.getWorldPosition(new THREE.Vector3());
-        // Object3D.lookAt(target) oriente le -Z local vers la cible. Donc
-        // FORWARD = (0,0,-1) appliqué au quaternion-monde = direction cible.
         turret.group.getWorldQuaternion(this._tmpQuat);
         const dir = FORWARD.clone().applyQuaternion(this._tmpQuat);
         return { muzzle, dir };
