@@ -97,6 +97,17 @@
     <div id="powerup-banner" aria-hidden="true"></div>
     <div id="buffs"></div>
 
+    <div id="pause-overlay">
+        <div id="pause-card">
+            <h1>PAUSE</h1>
+            <div class="pause-hint">Échap pour reprendre</div>
+            <div class="pause-buttons">
+                <button data-pause-resume>Reprendre</button>
+                <button data-pause-menu>Quitter au menu</button>
+            </div>
+        </div>
+    </div>
+
     <div id="defeat-overlay">
         <div id="defeat-card">
             <h1>VAISSEAU DÉTRUIT</h1>
@@ -110,7 +121,7 @@
                 <div>Dégâts subis : <span id="defeat-damage">0</span></div>
                 <div>Powerups récupérés : <span id="defeat-powerups">0</span></div>
             </div>
-            <button id="defeat-restart">Relancer</button>
+            <button id="defeat-restart">Retour au menu</button>
         </div>
     </div>
 

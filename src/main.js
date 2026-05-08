@@ -46,6 +46,14 @@ const GAME_KEYS = new Set([
 
 window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    if (e.code === 'Escape' && !e.repeat) {
+        if (game.running && !game.gameOver) {
+            game.pause.toggle(game);
+        }
+        return;
+    }
+
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (/^F\d+$/.test(e.code)) return;
     if (!GAME_KEYS.has(e.code)) {

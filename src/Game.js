@@ -20,6 +20,7 @@ import { POWERUP_TYPES } from './entities/Powerup.js';
 import { HudManager } from './hud/HudManager.js';
 import { SpatialGrid } from './physics/SpatialGrid.js';
 import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
+import { PauseManager } from './systems/PauseManager.js';
 
 export class Game {
     constructor(canvas) {
@@ -62,6 +63,13 @@ export class Game {
 
         this.hud = new HudManager();
         this.waveBanner = document.getElementById('wave-banner');
+
+        this.pause = new PauseManager({
+            overlayEl: document.getElementById('pause-overlay'),
+            sounds: this.sounds,
+            music: this.music,
+            onShowMenu: () => this.returnToMenu(),
+        });
 
         this.enemyOverlay = document.getElementById('enemy-overlay');
         this.leadOverlay = document.getElementById('lead-overlay');
@@ -200,6 +208,12 @@ export class Game {
         if (this.gameOver) {
             this.effects.update(dt);
             this.combat.update(dt, { player: this.ship, enemies: this.enemies, obstacles: [] });
+            this.sceneManager.render();
+            requestAnimationFrame(this._loop);
+            return;
+        }
+
+        if (this.pause.paused) {
             this.sceneManager.render();
             requestAnimationFrame(this._loop);
             return;
@@ -598,10 +612,34 @@ export class Game {
             missilesFired: this.missiles.playerMissilesFired,
             damageTaken: this.stats.damageTaken,
             powerupsCollected: this.stats.powerupsCollected,
-        }, () => this.restart());
+        }, () => this.returnToMenu());
+    }
+
+    returnToMenu() {
+        this.pause.resume();
+        this._resetWorld();
+        this.running = false;
+        this.gameOver = false;
+        this.hud.hideDefeat();
+        this.sounds.stopEngine();
+        this.music.playMenu();
+        const startOverlay = document.getElementById('start-overlay');
+        if (startOverlay) {
+            startOverlay.style.display = '';
+            // force reflow so the transition replays cleanly
+            void startOverlay.offsetWidth;
+            startOverlay.classList.remove('hidden');
+        }
     }
 
     restart() {
+        this._resetWorld();
+        this.gameOver = false;
+        this.hud.hideDefeat();
+        this.beginRun(this.waveManager.difficultyMultiplier ?? 1);
+    }
+
+    _resetWorld() {
         const scene = this.sceneManager.scene;
 
         for (const e of this.enemies) {
@@ -663,13 +701,8 @@ export class Game {
         this.combat.playerShotsFired = 0;
         this.combat.playerShotsHit = 0;
         this.missiles.playerMissilesFired = 0;
-        this.gameOver = false;
         this._wasLockHeld = false;
         this._prevLockedCount = 0;
-
-        this.hud.hideDefeat();
-
-        this.beginRun(this.waveManager.difficultyMultiplier ?? 1);
     }
 
     _flashWaveBanner() {

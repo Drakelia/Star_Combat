@@ -637,6 +637,67 @@ html, body {
     transform: scale(0.97);
 }
 
+#pause-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(10, 20, 50, 0.55) 0%, rgba(0, 0, 5, 0.85) 75%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 150;
+    backdrop-filter: blur(3px);
+}
+#pause-overlay.show {
+    display: flex;
+    animation: defeat-fade 0.25s ease-out;
+}
+#pause-card {
+    text-align: center;
+    color: #cfe9ff;
+    font-family: 'Segoe UI', sans-serif;
+    padding: 36px 56px;
+    background: rgba(8, 14, 30, 0.78);
+    border: 1px solid rgba(120, 180, 255, 0.35);
+    border-radius: 12px;
+    box-shadow: 0 0 60px rgba(80, 140, 220, 0.3);
+}
+#pause-card h1 {
+    margin: 0 0 6px;
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: 12px;
+    color: #ffd27a;
+    text-shadow: 0 0 18px rgba(255, 200, 100, 0.6);
+}
+#pause-card .pause-hint {
+    color: #8fb8e6;
+    letter-spacing: 3px;
+    font-size: 12px;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+}
+#pause-card .pause-buttons {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+}
+#pause-card .pause-buttons button {
+    background: rgba(40, 70, 110, 0.35);
+    color: #cfe9ff;
+    border: 1px solid rgba(120, 180, 255, 0.4);
+    padding: 10px 22px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+#pause-card .pause-buttons button:hover {
+    background: rgba(80, 130, 200, 0.4);
+    border-color: rgba(160, 210, 255, 0.7);
+}
+
 #wave-banner {
     position: fixed;
     left: 50%;
