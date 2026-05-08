@@ -61,8 +61,8 @@ export class Missile {
         scene.add(this.mesh);
 
         const flameGeo = new THREE.ConeGeometry(0.18 * bodyScale, 0.6 * bodyScale, 6);
-        flameGeo.rotateX(-Math.PI / 2);
-        flameGeo.translate(0, 0, 0.7 * bodyScale);
+        flameGeo.rotateX(Math.PI / 2);
+        flameGeo.translate(0, 0, -0.7 * bodyScale);
         const flameMat = new THREE.MeshBasicMaterial({
             color: flameColor,
             transparent: true,
