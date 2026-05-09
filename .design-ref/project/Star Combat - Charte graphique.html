@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Star Combat — Charte graphique</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: #0a0a0e; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="charte.jsx"></script>
+<script type="text/babel" src="direction-a.jsx"></script>
+<script type="text/babel" src="direction-b.jsx"></script>
+<script type="text/babel" src="direction-c.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const W = 1920, H = 1080;
+  function App() {
+    return (
+      <DesignCanvas>
+        <DCSection id="charte" title="Charte graphique" subtitle="Système · couleurs · type · ennemis">
+          <DCArtboard id="charte" label="System overview" width={1800} height={1180}>
+            <ChartePanel />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="dir-a" title="Direction A — STRIKE" subtitle="Tactique dense · readouts militaires · brackets">
+          <DCArtboard id="a-start" label="A · Start" width={W} height={H}><AStart /></DCArtboard>
+          <DCArtboard id="a-hud"   label="A · HUD"   width={W} height={H}><AHud /></DCArtboard>
+          <DCArtboard id="a-end"   label="A · End"   width={W} height={H}><AEnd /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="dir-b" title="Direction B — PULSE" subtitle="Minimal cinétique · glow rose · espace négatif">
+          <DCArtboard id="b-start" label="B · Start" width={W} height={H}><BStart /></DCArtboard>
+          <DCArtboard id="b-hud"   label="B · HUD"   width={W} height={H}><BHud /></DCArtboard>
+          <DCArtboard id="b-end"   label="B · End"   width={W} height={H}><BEnd /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="dir-c" title="Direction C — REACTOR" subtitle="Brutaliste arcade · cream + blocs rouge · poster">
+          <DCArtboard id="c-start" label="C · Start" width={W} height={H}><CStart /></DCArtboard>
+          <DCArtboard id="c-hud"   label="C · HUD"   width={W} height={H}><CHud /></DCArtboard>
+          <DCArtboard id="c-end"   label="C · End"   width={W} height={H}><CEnd /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -16,7 +16,7 @@ python -m http.server 8000
 
 Puis ouvrez `http://localhost:<port>/`.
 
-Au lancement, choisissez votre difficulté (**Facile / Normal / Difficile**). Elle multiplie le nombre et la résistance des ennemis (×0.5, ×1, ×1.7).
+Au lancement, choisissez votre difficulté (**CADET / PILOT / ACE**). Elle multiplie le nombre et la résistance des ennemis (×0.5, ×1, ×1.7). Vous pouvez aussi régler depuis le menu les volumes **EFFETS** et **MUSIQUE**.
 
 ## Commandes
 

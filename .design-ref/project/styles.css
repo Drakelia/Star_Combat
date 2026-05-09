@@ -1,0 +1,114 @@
+/* ============================================================
+   STAR COMBAT — Design tokens partagés
+   Direction A: STRIKE  | Direction B: PULSE  | Direction C: REACTOR
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  /* Shared neutrals */
+  --black: #050507;
+  --void:  #0a0a0e;
+  --ink:   #f4f3f1;
+
+  /* Direction A — STRIKE */
+  --a-bg:      #08080c;
+  --a-panel:   #0e0f15;
+  --a-line:    #1a1b24;
+  --a-mid:     #5a5d6e;
+  --a-fg:      #e9eaef;
+  --a-red:     #ff2d55;
+  --a-pink:    #ff3ea5;
+  --a-warn:    #ffb84a;
+
+  /* Direction B — PULSE */
+  --b-bg:      #000000;
+  --b-fg:      #ffffff;
+  --b-mid:     #4a4a55;
+  --b-pink:    #ff2a6d;
+  --b-glow:    #ff5b94;
+
+  /* Direction C — REACTOR */
+  --c-bg:      #efe9dd;
+  --c-ink:     #18130f;
+  --c-red:     #ff1f3d;
+  --c-cream:   #f5efe1;
+  --c-paper:   #e6dec9;
+  --c-mid:     #6b6358;
+}
+
+/* Base artboard reset */
+.artboard {
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--ink);
+  position: relative;
+  overflow: hidden;
+  width: 1920px;
+  height: 1080px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.artboard * { box-sizing: border-box; }
+
+/* Star field placeholder (used in HUDs) */
+.starfield {
+  position: absolute;
+  inset: 0;
+  background-color: #050507;
+  background-image:
+    radial-gradient(1px 1px at 23% 17%, #fff7 0, transparent 50%),
+    radial-gradient(1px 1px at 78% 31%, #fff5 0, transparent 50%),
+    radial-gradient(1px 1px at 41% 78%, #fff5 0, transparent 50%),
+    radial-gradient(1px 1px at 88% 88%, #fff8 0, transparent 50%),
+    radial-gradient(2px 2px at 12% 53%, #fff9 0, transparent 50%),
+    radial-gradient(1px 1px at 64% 8%,  #fff5 0, transparent 50%),
+    radial-gradient(1px 1px at 32% 92%, #fff4 0, transparent 50%),
+    radial-gradient(1px 1px at 7% 24%,  #fff3 0, transparent 50%),
+    radial-gradient(1px 1px at 56% 47%, #fff7 0, transparent 50%),
+    radial-gradient(1px 1px at 95% 64%, #fff4 0, transparent 50%),
+    radial-gradient(1px 1px at 18% 38%, #fff2 0, transparent 50%),
+    radial-gradient(1px 1px at 71% 71%, #fff5 0, transparent 50%);
+}
+
+/* Distant nebula placeholder behind action — direction A & B */
+.nebula-a {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 70% 35%, rgba(255,45,85,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 20% 70%, rgba(255,62,165,0.07) 0%, transparent 60%);
+}
+.nebula-b {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 45% at 65% 40%, rgba(255,42,109,0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 55% at 25% 65%, rgba(255,91,148,0.06) 0%, transparent 60%);
+}
+
+/* SCANLINE/grain shared opt-in */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* ===== Utility ===== */
+.mono { font-family: 'Space Mono', monospace; }
+.orb  { font-family: 'Orbitron', sans-serif; letter-spacing: 0.04em; }
+.raj  { font-family: 'Rajdhani', sans-serif; }
+.upper { text-transform: uppercase; }
+
+/* Small ticking label */
+.kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}

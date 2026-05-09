@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Star Combat — Direction A · STRIKE</title>
+<link rel="stylesheet" href="styles.css" />
+<style>html, body { margin: 0; padding: 0; background: #08080c; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="direction-a.jsx"></script>
+<script type="text/babel" src="direction-a-v2.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+  const W = 1920, H = 1080;
+  function App() {
+    return (
+      <DesignCanvas>
+        <DCSection id="core" title="STRIKE · v2 — écrans principaux" subtitle="Start · HUD · End — version poussée plus loin">
+          <DCArtboard id="a2-start" label="A · Start (v2)" width={W} height={H}><A2Start /></DCArtboard>
+          <DCArtboard id="a2-hud"   label="A · HUD (v2)"   width={W} height={H}><A2Hud /></DCArtboard>
+          <DCArtboard id="a2-end"   label="A · End (v2)"   width={W} height={H}><A2End /></DCArtboard>
+        </DCSection>
+        <DCSection id="extras" title="Écrans bonus" subtitle="Pause overlay · transition entre vagues">
+          <DCArtboard id="a2-pause" label="A · Pause" width={W} height={H}><A2Pause /></DCArtboard>
+          <DCArtboard id="a2-wave"  label="A · Wave Clear" width={W} height={H}><A2WaveClear /></DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -6,19 +6,36 @@ export class MusicManager {
     } = {}) {
         this.menu = new Audio(menuSrc);
         this.menu.loop = true;
-        this.menu.volume = 1;
         this.game = new Audio(gameSrc);
         this.game.loop = true;
-        this.game.volume = 0.5;
         this.defeat = new Audio(defeatSrc);
         this.defeat.loop = true;
-        this.defeat.volume = 0.4;
+
+        // Poids relatifs par piste — multipliés par le volume utilisateur.
+        this._weights = new Map([
+            [this.menu, 1.0],
+            [this.game, 0.5],
+            [this.defeat, 0.4],
+        ]);
+        this.volume = 1.0;
+        this._applyVolume();
         this.current = null;
 
         for (const a of [this.menu, this.game, this.defeat]) {
             a.addEventListener('error', () => {
                 console.warn('[music] fichier introuvable:', a.src);
             });
+        }
+    }
+
+    setVolume(v) {
+        this.volume = Math.max(0, Math.min(1, v));
+        this._applyVolume();
+    }
+
+    _applyVolume() {
+        for (const [track, w] of this._weights) {
+            track.volume = Math.max(0, Math.min(1, w * this.volume));
         }
     }
 

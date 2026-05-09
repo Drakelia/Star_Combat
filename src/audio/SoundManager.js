@@ -6,6 +6,7 @@ export class SoundManager {
         this.lowShelf = null;
         this.engine = null;
         this.muted = false;
+        this.volume = 0.7;
 
         const unlock = () => {
             this._ensure();
@@ -24,7 +25,7 @@ export class SoundManager {
         this.ctx = new Ctx();
 
         this.master = this.ctx.createGain();
-        this.master.gain.value = 0.7;
+        this.master.gain.value = this.muted ? 0 : this.volume;
 
         this.lowShelf = this.ctx.createBiquadFilter();
         this.lowShelf.type = 'lowshelf';
@@ -43,7 +44,12 @@ export class SoundManager {
 
     setMuted(m) {
         this.muted = m;
-        if (this.master) this.master.gain.value = m ? 0 : 0.7;
+        if (this.master) this.master.gain.value = m ? 0 : this.volume;
+    }
+
+    setVolume(v) {
+        this.volume = Math.max(0, Math.min(1, v));
+        if (this.master && !this.muted) this.master.gain.value = this.volume;
     }
 
     _noiseBuffer(duration) {

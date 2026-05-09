@@ -2,7 +2,9 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8" />
-    <title>Space Game</title>
+    <title>Star Combat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="styles.css" />
     <script type="importmap">
     {
@@ -13,75 +15,237 @@
     </script>
 </head>
 <body>
+    <!-- ============================================================
+         START OVERLAY
+         ============================================================ -->
     <div id="start-overlay">
-        <div id="start-card">
-            <h1 id="start-title">STAR COMBAT</h1>
-            <div class="start-subtitle">Choisissez votre difficulté</div>
-            <div class="diff-row">
-                <button class="diff-btn" data-diff="easy">Facile</button>
-                <button class="diff-btn" data-diff="normal">Normal</button>
-                <button class="diff-btn" data-diff="hard">Difficile</button>
-            </div>
-            <div class="start-controls">
-                <div class="start-controls-title">Commandes</div>
-                <div class="ctrl-grid">
-                    <div><span class="key">Souris</span><span>Viser</span></div>
-                    <div><span class="key">Clic G.</span><span>Tirer</span></div>
-                    <div><span class="key">W / S</span><span>Accélérer / Reculer</span></div>
-                    <div><span class="key">X</span><span>Freiner</span></div>
-                    <div><span class="key">A / D</span><span>Roulis</span></div>
-                    <div><span class="key">Q / E</span><span>Latéral gauche / droite</span></div>
-                    <div><span class="key">Espace / Ctrl</span><span>Monter / Descendre</span></div>
-                    <div><span class="key">Shift</span><span>Boost (réserve, jusqu'à 180)</span></div>
-                    <div class="ctrl-wide"><span class="key">Clic D.</span><span>Maintenir pour verrouiller, relâcher pour la salve missiles</span></div>
+        <div class="starfield"></div>
+        <div class="nebula"></div>
+
+        <div class="hud-chrome top">
+            <span><span class="red">●</span> TRANSMISSION ─ DEFENCE COMMAND</span>
+            <span>STAR COMBAT // SECTOR-7 / OUTER RIM</span>
+            <span>UPLINK 99.4%</span>
+        </div>
+
+        <div class="frame-corner tl"></div>
+        <div class="frame-corner tr"></div>
+        <div class="frame-corner bl"></div>
+        <div class="frame-corner br"></div>
+
+        <div class="start-grid">
+            <section id="start-left">
+                <div class="kicker red">▸ INCOMING TRANSMISSION ─ PRIORITY ALPHA</div>
+                <h1 id="start-title">STAR<span class="accent">COMBAT</span></h1>
+                <div class="stamps">
+                    <span class="tag fill">OPERATION · NIGHT-FALL</span>
+                    <span class="tag pink">VAGUES · ∞</span>
+                    <span class="tag warn">BOSS · 5 · 10 · 15…</span>
+                    <span class="tag mid">SOLO</span>
+                </div>
+                <p class="lead">
+                    Dernier vaisseau de la flotte. La station <span class="hl">VEGA-9</span> est encerclée.
+                    Tenez la position le plus longtemps possible. Aucun renfort attendu.
+                </p>
+
+                <div id="wave-forecast-block">
+                    <div class="kicker">▸ WAVE FORECAST</div>
+                    <div id="wave-forecast"></div>
+                </div>
+            </section>
+
+            <section id="start-right">
+                <div class="kicker red">▸ MISSION DIFFICULTY</div>
+                <div id="diff-list">
+                    <button type="button" class="diff-btn" data-diff="easy">
+                        <span class="diff-code">[01]</span>
+                        <span class="diff-radio"></span>
+                        <span>
+                            <span class="diff-name">CADET</span>
+                            <div class="diff-desc">Hull renforcé · vagues plus douces</div>
+                        </span>
+                        <span class="tag mid">EASY</span>
+                    </button>
+                    <button type="button" class="diff-btn active" data-diff="normal">
+                        <span class="diff-code">[02]</span>
+                        <span class="diff-radio"></span>
+                        <span>
+                            <span class="diff-name">PILOT</span>
+                            <div class="diff-desc">Paramètres standards</div>
+                        </span>
+                        <span class="tag">STD</span>
+                    </button>
+                    <button type="button" class="diff-btn" data-diff="hard">
+                        <span class="diff-code">[03]</span>
+                        <span class="diff-radio"></span>
+                        <span>
+                            <span class="diff-name">ACE</span>
+                            <div class="diff-desc">Ennemis plus nombreux et coriaces</div>
+                        </span>
+                        <span class="tag warn">HARD</span>
+                    </button>
+                </div>
+
+                <div id="flight-controls">
+                    <div class="kicker red">▸ FLIGHT CONTROLS</div>
+                    <div class="grid">
+                        <div class="fc-row"><span class="fc-k">THRUST</span><span class="fc-v">W · S</span></div>
+                        <div class="fc-row"><span class="fc-k">BRAKE</span><span class="fc-v">X</span></div>
+                        <div class="fc-row"><span class="fc-k">STRAFE</span><span class="fc-v">Q · E</span></div>
+                        <div class="fc-row"><span class="fc-k">ROLL</span><span class="fc-v">A · D</span></div>
+                        <div class="fc-row"><span class="fc-k">UP / DOWN</span><span class="fc-v">SPACE / CTRL</span></div>
+                        <div class="fc-row"><span class="fc-k">BOOST</span><span class="fc-v">SHIFT</span></div>
+                        <div class="fc-row"><span class="fc-k">FIRE</span><span class="fc-v">LMB</span></div>
+                        <div class="fc-row"><span class="fc-k">MISSILE</span><span class="fc-v">RMB</span></div>
+                        <div class="fc-row"><span class="fc-k">LOCK-ON</span><span class="fc-v">T · Y</span></div>
+                        <div class="fc-row"><span class="fc-k">PAUSE</span><span class="fc-v">ESC</span></div>
+                        <div class="fc-row"><span class="fc-k">FULLSCREEN</span><span class="fc-v">F</span></div>
+                    </div>
+                </div>
+
+                <div class="audio-block">
+                    <div class="kicker red">▸ AUDIO</div>
+                    <div class="audio-row">
+                        <span class="audio-label">EFFETS</span>
+                        <input type="range" data-vol="sfx" min="0" max="1" step="0.01" value="0.7" />
+                        <span class="audio-val" data-vol-val="sfx">70%</span>
+                    </div>
+                    <div class="audio-row">
+                        <span class="audio-label">MUSIQUE</span>
+                        <input type="range" data-vol="music" min="0" max="1" step="0.01" value="1" />
+                        <span class="audio-val" data-vol-val="music">100%</span>
+                    </div>
+                </div>
+
+                <button id="start-play" type="button">▶ LANCER LA MISSION</button>
+            </section>
+        </div>
+
+        <div class="hud-chrome bottom">
+            <span class="red">● ALL SYSTEMS NOMINAL</span>
+            <span>STAR COMBAT v0.4</span>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         IN-GAME HUD
+         ============================================================ -->
+    <div id="hud">
+        <div class="frame-corner tl"></div>
+        <div class="frame-corner tr"></div>
+        <div class="frame-corner bl"></div>
+        <div class="frame-corner br"></div>
+
+        <!-- WAVE block (top-left) -->
+        <div id="hud-wave">
+            <span class="wave-tag">● VAGUE</span>
+            <span class="wave-num"><span id="wave">–</span></span>
+            <span class="wave-progress" id="wave-progress"></span>
+            <span class="wave-status">
+                <span id="wave-status-label">ETAT</span>
+                <span class="val" id="wave-status">–</span>
+            </span>
+        </div>
+
+        <!-- Locked target panel -->
+        <div id="target-info" aria-hidden="true">
+            <div class="kicker red">▸ LOCKED TARGET</div>
+            <div class="ti-name">–</div>
+            <div class="ti-class">CLASS</div>
+            <div class="ti-bar"><div class="ti-bar-fill"></div></div>
+            <div class="ti-rows">
+                <div class="ti-row">
+                    <span class="ti-label">DIST</span>
+                    <span class="ti-val ti-dist">0</span>
+                </div>
+                <div class="ti-row">
+                    <span class="ti-label">VEL</span>
+                    <span class="ti-val ti-speed">0</span>
                 </div>
             </div>
-            <button id="start-play">LANCER LA PARTIE</button>
-        </div>
-    </div>
-
-    <div id="hud">
-        <div id="hud-top">
-            <div class="hud-wave-block">
-                <div class="hud-label">VAGUE</div>
-                <div class="hud-wave-num"><span id="wave">–</span></div>
-                <div class="hud-wave-status"><span id="wave-status">–</span></div>
-            </div>
         </div>
 
+        <!-- HULL + SHIELD -->
         <div id="hud-bottom-left">
-            <div class="hud-corner-bracket tl"></div>
-            <div class="hud-corner-bracket bl"></div>
-            <div class="hud-block-title">COQUE</div>
-            <div class="hud-bar">
-                <div class="hud-bar-fill" id="hp-fill"></div>
-                <div class="hud-bar-text"><span id="hp">100</span></div>
+            <div class="row-head">
+                <div class="stripe">▸ HULL INTEGRITY</div>
+                <div class="stripe red" id="hull-status">●</div>
             </div>
-            <div class="hud-bar shield" id="shield-bar">
+            <div class="bar-block">
+                <div class="bar-track"><div class="bar-fill" id="hp-fill"></div></div>
+                <div class="bar-meta">
+                    <span class="val"><span id="hp">100</span> / 100</span>
+                    <span class="unit">HP</span>
+                </div>
+            </div>
+            <div style="height: 10px"></div>
+            <div class="stripe">▸ SHIELD MATRIX</div>
+            <div id="shield-bar">
                 <div class="hud-shield-seg"><div class="seg-fill"></div></div>
                 <div class="hud-shield-seg"><div class="seg-fill"></div></div>
                 <div class="hud-shield-seg"><div class="seg-fill"></div></div>
             </div>
         </div>
 
+        <!-- ARMAMENT -->
         <div id="hud-bottom-right">
-            <div class="hud-corner-bracket tr"></div>
-            <div class="hud-corner-bracket br"></div>
-            <div class="hud-row"><span class="hud-label">VEL</span><span class="hud-val" id="speed">0</span></div>
-            <div class="hud-row"><span class="hud-label">CIBLES</span><span class="hud-val" id="locks">0</span></div>
-            <div class="hud-row"><span class="hud-label">MSL</span><span class="hud-val" id="cooldown">prêt</span></div>
-            <div class="hud-row"><span class="hud-label">ENN</span><span class="hud-val" id="enemies">0</span></div>
-        </div>
-
-        <div id="hud-bottom-center">
-            <div class="hud-block-title">BOOST</div>
-            <div class="hud-bar boost">
-                <div class="hud-bar-fill" id="boost-fill"></div>
-                <div class="hud-bar-text"><span id="boost-text">10.0s</span></div>
+            <div class="row-head">
+                <div class="stripe">▸ ARMAMENT</div>
+                <div class="stripe">SLOT 1·2</div>
+            </div>
+            <div id="armament-list">
+                <div class="weapon" id="w-laser">
+                    <span class="key">LMB</span>
+                    <div>
+                        <div class="name-row">
+                            <span class="name">PULSE LASER</span>
+                            <span class="hint">PRIMARY</span>
+                        </div>
+                        <div class="cd-track"><div class="cd-fill" id="laser-cd"></div></div>
+                    </div>
+                    <span class="ammo">∞</span>
+                </div>
+                <div class="weapon" id="w-missile">
+                    <span class="key">RMB</span>
+                    <div>
+                        <div class="name-row">
+                            <span class="name">HOMING MISSILE</span>
+                            <span class="hint" id="missile-hint">CIBLES</span>
+                        </div>
+                        <div class="cd-track"><div class="cd-fill" id="missile-cd"></div></div>
+                    </div>
+                    <span class="ammo"><span id="locks">0</span> · <span id="cooldown">prêt</span></span>
+                </div>
             </div>
         </div>
+
+        <!-- Speed / Boost column -->
+        <div id="hud-speed-boost">
+            <span class="label">SPD</span>
+            <span class="speed-val" id="speed">0</span>
+            <span class="unit">m/s</span>
+            <div class="speed-track">
+                <div class="speed-fill" id="speed-fill"></div>
+                <div class="speed-tick" style="bottom: 25%"></div>
+                <div class="speed-tick" style="bottom: 50%"></div>
+                <div class="speed-tick" style="bottom: 75%"></div>
+            </div>
+            <span class="label red">BOOST</span>
+            <div class="boost-track">
+                <div class="boost-fill" id="boost-fill"></div>
+            </div>
+            <span class="boost-text" id="boost-text">10.0s</span>
+        </div>
+
+        <div id="enemies-counter" style="display:none"><span id="enemies">0</span></div>
+
+        <!-- Banners (à l'intérieur de #hud pour rester dans le cadre 16:9) -->
+        <div id="wave-banner" aria-hidden="true"></div>
+        <div id="powerup-banner" aria-hidden="true"></div>
+        <div id="buffs"></div>
     </div>
 
+    <!-- Effects layers (plein viewport — n'est PAS contraint au 16:9) -->
     <div id="damage-vignette" aria-hidden="true">
         <div id="damage-low"></div>
         <div id="damage-hit"></div>
@@ -104,53 +268,169 @@
         <div id="lock-arrow"></div>
     </div>
 
-    <div id="target-info" aria-hidden="true">
-        <div class="ti-name">–</div>
-        <div class="ti-bar"><div class="ti-bar-fill"></div></div>
-        <div class="ti-rows">
-            <div class="ti-row"><span class="ti-label">VIT</span><span class="ti-val ti-speed">0</span></div>
-            <div class="ti-row"><span class="ti-label">DST</span><span class="ti-val ti-dist">0</span></div>
-        </div>
-    </div>
+    <div id="enemy-markers" aria-hidden="true"></div>
 
-    <div id="wave-banner" aria-hidden="true"></div>
-    <div id="powerup-banner" aria-hidden="true"></div>
-    <div id="buffs"></div>
-
-    <div id="pause-overlay">
-        <div id="pause-card">
-            <h1>PAUSE</h1>
-            <div class="pause-hint">Échap pour reprendre</div>
-            <div class="pause-buttons">
-                <button data-pause-resume>Reprendre</button>
-                <button data-pause-menu>Quitter au menu</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="defeat-overlay">
-        <div id="defeat-card">
-            <h1>VAISSEAU DÉTRUIT</h1>
-            <div class="defeat-stats">
-                <div>Vague atteinte : <span id="defeat-wave">0</span></div>
-                <div>Durée : <span id="defeat-time">0:00</span></div>
-                <div>Ennemis abattus : <span id="defeat-kills">0</span></div>
-                <div>Tirs : <span id="defeat-shots">0 / 0</span></div>
-                <div>Précision : <span id="defeat-accuracy">0%</span></div>
-                <div>Missiles tirés : <span id="defeat-missiles">0</span></div>
-                <div>Dégâts subis : <span id="defeat-damage">0</span></div>
-                <div>Powerups récupérés : <span id="defeat-powerups">0</span></div>
-            </div>
-            <button id="defeat-restart">Retour au menu</button>
-        </div>
-    </div>
-
+    <!-- Crosshair central — petite croix simple. -->
     <div id="crosshair-center" aria-hidden="true">
-        <div class="ch-h"></div>
-        <div class="ch-v"></div>
-        <div class="ch-dot"></div>
+        <svg viewBox="0 0 40 40">
+            <g stroke="#ff2d55" stroke-width="1.2" fill="none">
+                <path d="M20,4 L20,14 M20,26 L20,36 M4,20 L14,20 M26,20 L36,20"/>
+            </g>
+        </svg>
     </div>
     <div id="reticle" aria-hidden="true"></div>
+
+    <!-- ============================================================
+         PAUSE OVERLAY
+         ============================================================ -->
+    <div id="pause-overlay">
+        <div id="pause-card">
+            <div class="kicker red" id="pause-stripe">▸ MISSION PAUSED</div>
+            <h1>PAUSE<span class="dot">.</span></h1>
+
+            <div id="pause-stats">
+                <div>
+                    <div class="kicker">VAGUE</div>
+                    <div class="ps-val" id="pause-wave">–</div>
+                </div>
+                <div>
+                    <div class="kicker">COQUE</div>
+                    <div class="ps-val" id="pause-hull">–</div>
+                </div>
+                <div>
+                    <div class="kicker">DURÉE</div>
+                    <div class="ps-val" id="pause-time">0:00</div>
+                </div>
+            </div>
+
+            <div class="pause-cols">
+                <div class="pause-controls">
+                    <div class="kicker red">▸ FLIGHT CONTROLS</div>
+                    <div class="grid">
+                        <div class="fc-row"><span class="fc-k">THRUST</span><span class="fc-v">W · S</span></div>
+                        <div class="fc-row"><span class="fc-k">BRAKE</span><span class="fc-v">X</span></div>
+                        <div class="fc-row"><span class="fc-k">STRAFE</span><span class="fc-v">Q · E</span></div>
+                        <div class="fc-row"><span class="fc-k">ROLL</span><span class="fc-v">A · D</span></div>
+                        <div class="fc-row"><span class="fc-k">UP / DOWN</span><span class="fc-v">SPACE / CTRL</span></div>
+                        <div class="fc-row"><span class="fc-k">BOOST</span><span class="fc-v">SHIFT</span></div>
+                        <div class="fc-row"><span class="fc-k">FIRE</span><span class="fc-v">LMB</span></div>
+                        <div class="fc-row"><span class="fc-k">MISSILE</span><span class="fc-v">RMB</span></div>
+                        <div class="fc-row"><span class="fc-k">LOCK-ON</span><span class="fc-v">T · Y</span></div>
+                        <div class="fc-row"><span class="fc-k">PAUSE</span><span class="fc-v">ESC</span></div>
+                        <div class="fc-row"><span class="fc-k">FULLSCREEN</span><span class="fc-v">F</span></div>
+                    </div>
+                </div>
+
+                <div class="audio-block">
+                    <div class="kicker red">▸ AUDIO</div>
+                    <div class="audio-row">
+                        <span class="audio-label">EFFETS</span>
+                        <input type="range" data-vol="sfx" min="0" max="1" step="0.01" value="0.7" />
+                        <span class="audio-val" data-vol-val="sfx">70%</span>
+                    </div>
+                    <div class="audio-row">
+                        <span class="audio-label">MUSIQUE</span>
+                        <input type="range" data-vol="music" min="0" max="1" step="0.01" value="1" />
+                        <span class="audio-val" data-vol-val="music">100%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pause-buttons">
+                <button type="button" data-pause-resume>
+                    <span class="pb-icon">▶</span>
+                    <span class="pb-name">REPRENDRE</span>
+                    <span class="pb-key">ESC</span>
+                </button>
+                <button type="button" data-pause-menu>
+                    <span class="pb-icon">○</span>
+                    <span class="pb-name">QUITTER AU MENU</span>
+                    <span class="pb-key">M</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         DEFEAT OVERLAY
+         ============================================================ -->
+    <div id="defeat-overlay">
+        <div class="starfield"></div>
+        <div class="nebula"></div>
+
+        <div class="frame-corner tl"></div>
+        <div class="frame-corner tr"></div>
+        <div class="frame-corner bl"></div>
+        <div class="frame-corner br"></div>
+
+        <div class="defeat-grid">
+            <section id="defeat-left">
+                <div class="kicker red">▸ MISSION TERMINATED // SHIP DESTROYED</div>
+                <h1 id="defeat-title">GAME<span class="accent">OVER</span></h1>
+                <p class="lead" style="color:#b8b9c4; margin-top: 22px; font-size: 18px;">
+                    Vaisseau détruit. <span class="hl" style="color: var(--a-red);">Run terminé</span>
+                    après <span id="defeat-summary-time" style="color: var(--a-fg);">0:00</span>
+                    sur <span id="defeat-summary-wave" style="color: var(--a-fg);">0</span> vagues.
+                </p>
+            </section>
+
+            <section id="defeat-right">
+                <div class="row-head">
+                    <div class="kicker red">▸ AFTER-ACTION REPORT</div>
+                    <span class="stripe">RUN COMPLETE</span>
+                </div>
+
+                <div id="defeat-stats">
+                    <div class="ds-cell hot">
+                        <div class="kicker">VAGUES ATTEINTES</div>
+                        <div class="ds-val" id="defeat-wave">0</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">SURVIE</div>
+                        <div class="ds-val" id="defeat-time">0:00</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">PRÉCISION</div>
+                        <div class="ds-val" id="defeat-accuracy">0%</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">DÉGÂTS REÇUS</div>
+                        <div class="ds-val" id="defeat-damage">0</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">TIRS TOUCHÉS / TOTAL</div>
+                        <div class="ds-val" id="defeat-shots">0 / 0</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">MISSILES TIRÉS</div>
+                        <div class="ds-val" id="defeat-missiles">0</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">POWERUPS</div>
+                        <div class="ds-val" id="defeat-powerups">0</div>
+                    </div>
+                    <div class="ds-cell">
+                        <div class="kicker">KILLS</div>
+                        <div class="ds-val" id="defeat-kills">0</div>
+                    </div>
+                </div>
+
+                <div id="defeat-kills-block">
+                    <div class="row-head">
+                        <div class="kicker red">▸ HOSTILES NEUTRALIZED · <span id="defeat-kills-total">0</span></div>
+                    </div>
+                    <div id="defeat-kills-grid"></div>
+                </div>
+            </section>
+        </div>
+
+        <div id="defeat-cta">
+            <button type="button" class="primary" id="defeat-restart">
+                ↻ RETOUR AU MENU
+                <span class="key-chip">R</span>
+            </button>
+        </div>
+    </div>
 
     <canvas id="game"></canvas>
     <script type="module" src="src/main.js"></script>

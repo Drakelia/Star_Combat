@@ -52,14 +52,59 @@ export class WaveManager {
         this.sounds?.lockBeep?.({ volume: 0.3 });
     }
 
-    _spawnRegularWave(player) {
-        const w = this.wave;
-        const mul = this.difficultyMultiplier;
-        // Composition par vague : fighters majoritaires, snipers à partir de
-        // la vague 3, tanks à partir de la vague 5.
+    /**
+     * Composition d'une vague régulière (sans spawner). Source de vérité
+     * unique utilisée par `_spawnRegularWave` ET `previewWaves`.
+     */
+    _composeRegularWave(w, mul = this.difficultyMultiplier) {
+        // Fighters majoritaires, snipers à partir de la vague 3, tanks à partir
+        // de la vague 5.
         const fighters = Math.max(1, Math.round((4 + w * 1.6) * mul));
         const snipers  = w >= 3 ? Math.min(8, Math.floor((w - 1) / 2) * Math.max(1, Math.round(mul))) : 0;
         const tanks    = w >= 5 ? Math.min(6, Math.floor((w - 3) / 3) * Math.max(1, Math.round(mul))) : 0;
+        return { fighters, snipers, tanks };
+    }
+
+    /**
+     * Composition d'une vague de boss. Pure (pas de spawn).
+     */
+    _composeBossWave(w, mul = this.difficultyMultiplier) {
+        const bossCount = Math.max(1, Math.floor(w / 5));
+        const supportPerBoss = Math.min(20, 4 + Math.floor(w / 5) * 2);
+        const supportTotal = bossCount * supportPerBoss;
+        const fighters = Math.round(supportTotal * 0.55);
+        const snipers  = Math.round(supportTotal * 0.2);
+        const tanks    = supportTotal - fighters - snipers;
+        return { bossCount, fighters, snipers, tanks };
+    }
+
+    /**
+     * Aperçu non-mutatif des `count` prochaines vagues à venir (à partir de
+     * `wave + 1` si la run est en cours, sinon à partir de la vague 1).
+     * Utilisé par le start screen pour afficher la WAVE FORECAST.
+     */
+    previewWaves(count = 10) {
+        const start = (this.wave > 0 ? this.wave + 1 : 1);
+        const out = [];
+        for (let i = 0; i < count; i++) {
+            const w = start + i;
+            const isBoss = w % 5 === 0;
+            if (isBoss) {
+                const c = this._composeBossWave(w);
+                out.push({ wave: w, isBoss: true, bossCount: c.bossCount,
+                          fighters: c.fighters, snipers: c.snipers, tanks: c.tanks });
+            } else {
+                const c = this._composeRegularWave(w);
+                out.push({ wave: w, isBoss: false, bossCount: 0,
+                          fighters: c.fighters, snipers: c.snipers, tanks: c.tanks });
+            }
+        }
+        return out;
+    }
+
+    _spawnRegularWave(player) {
+        const w = this.wave;
+        const { fighters, snipers, tanks } = this._composeRegularWave(w);
         const total = fighters + snipers + tanks;
 
         const baseHp = 30 + Math.floor(w * 4);
@@ -80,8 +125,8 @@ export class WaveManager {
 
     _spawnBossWave(player) {
         const w = this.wave;
-        const bossCount = Math.max(1, Math.floor(w / 5));
-        const supportPerBoss = Math.min(20, 4 + Math.floor(w / 5) * 2);
+        const composition = this._composeBossWave(w);
+        const bossCount = composition.bossCount;
 
         const bossHp = 800 + (w - 5) * 120;
         for (let b = 0; b < bossCount; b++) {
@@ -101,10 +146,8 @@ export class WaveManager {
 
         // Support : mélange de fighters/snipers/tanks autour du joueur, à
         // distance d'engagement (les bosses sont plus loin).
-        const supportTotal = bossCount * supportPerBoss;
-        const fighters = Math.round(supportTotal * 0.55);
-        const snipers  = Math.round(supportTotal * 0.2);
-        const tanks    = supportTotal - fighters - snipers;
+        const { fighters, snipers, tanks } = composition;
+        const supportTotal = fighters + snipers + tanks;
 
         const baseHp = 30 + Math.floor(w * 4);
         const tankHp = 90 + Math.floor(w * 10);

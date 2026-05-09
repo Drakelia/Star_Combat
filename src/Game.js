@@ -22,6 +22,7 @@ import { SpatialGrid } from './physics/SpatialGrid.js';
 import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
 import { PauseManager } from './systems/PauseManager.js';
 import { TargetLock, enemyLabel } from './systems/TargetLock.js';
+import { EnemyMarkers } from './hud/EnemyMarkers.js';
 
 export class Game {
     constructor(canvas) {
@@ -57,6 +58,7 @@ export class Game {
         this.gameOver = false;
         this.stats = {
             kills: 0,
+            killsByType: { fighter: 0, sniper: 0, tank: 0, boss: 0 },
             damageTaken: 0,
             runTimeSec: 0,
             powerupsCollected: 0,
@@ -82,6 +84,10 @@ export class Game {
         this.lockDistanceEl = this.lockFrameEl ? this.lockFrameEl.querySelector('.lock-distance') : null;
         this.targetInfoEl = document.getElementById('target-info');
         this._lockCache = { name: null, distBucket: null, framePx: null, arrowPx: null };
+
+        // Marqueurs de type sur les ennemis non-accrochés.
+        this.enemyMarkers = new EnemyMarkers(document.getElementById('enemy-markers'));
+
         this.projectileSpeed = 380;
         this.projectileLifetime = 2.2;
         this.aimDistance = 1500;
@@ -287,6 +293,9 @@ export class Game {
             const e = this.enemies[i];
             if (!e.alive) {
                 this.stats.kills += 1;
+                if (e.kind && this.stats.killsByType[e.kind] !== undefined) {
+                    this.stats.killsByType[e.kind] += 1;
+                }
                 const dist = e.object.position.distanceTo(this.ship.object.position);
                 if (dist < 120) {
                     const k = 1 - dist / 120;
@@ -349,6 +358,15 @@ export class Game {
         this._updateHud();
         this._updateLockHUD();
         this._updateLeadIndicators();
+        if (this.enemyMarkers) {
+            this.enemyMarkers.update(
+                this.enemies,
+                this.targetLock?.target,
+                this.sceneManager.camera,
+                window.innerWidth,
+                window.innerHeight,
+            );
+        }
 
         this.sceneManager.render();
         requestAnimationFrame(this._loop);
@@ -691,6 +709,7 @@ export class Game {
         this.hud.showDefeat({
             wave: this.waveManager.wave,
             kills: this.stats.kills,
+            killsByType: this.stats.killsByType,
             runTimeSec: this.stats.runTimeSec,
             shotsFired: this.combat.playerShotsFired,
             shotsHit: this.combat.playerShotsHit,
@@ -775,9 +794,14 @@ export class Game {
         this.waveManager.justAdvanced = false;
 
         this.stats.kills = 0;
+        this.stats.killsByType.fighter = 0;
+        this.stats.killsByType.sniper = 0;
+        this.stats.killsByType.tank = 0;
+        this.stats.killsByType.boss = 0;
         this.stats.damageTaken = 0;
         this.stats.runTimeSec = 0;
         this.stats.powerupsCollected = 0;
+        this.enemyMarkers?.hideAll();
         this.combat.playerShotsFired = 0;
         this.combat.playerShotsHit = 0;
         this.missiles.playerMissilesFired = 0;
@@ -788,9 +812,26 @@ export class Game {
 
     _flashWaveBanner() {
         if (!this.waveBanner) return;
-        this.waveBanner.textContent = `VAGUE ${this.waveManager.wave}`;
+        const isBoss = this.waveManager.wave > 0 && this.waveManager.wave % 5 === 0;
+        this.waveBanner.textContent = isBoss
+            ? `▲ ▲ ▲  BOSS INCOMING — VAGUE ${this.waveManager.wave}  ▲ ▲ ▲`
+            : `▸ VAGUE ${this.waveManager.wave}`;
+        this.waveBanner.classList.toggle('boss', isBoss);
         this.waveBanner.classList.remove('show');
         void this.waveBanner.offsetWidth;
         this.waveBanner.classList.add('show');
+    }
+
+    /**
+     * Met à jour le snapshot affiché dans le menu pause (vague, coque, durée).
+     * Appelé une seule fois au moment où la pause est déclenchée — pas par-frame.
+     */
+    refreshPauseSnapshot() {
+        this.hud.updatePauseSnapshot({
+            wave: this.waveManager.wave,
+            hp: this.ship.hp,
+            hpMax: this.ship.maxHp,
+            runTimeSec: this.stats.runTimeSec,
+        });
     }
 }
