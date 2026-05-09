@@ -23,6 +23,7 @@ import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
 import { PauseManager } from './systems/PauseManager.js';
 import { TargetLock, enemyLabel } from './systems/TargetLock.js';
 import { EnemyMarkers } from './hud/EnemyMarkers.js';
+import { TargetView } from './hud/TargetView.js';
 
 export class Game {
     constructor(canvas) {
@@ -87,6 +88,13 @@ export class Game {
 
         // Marqueurs de type sur les ennemis non-accrochés.
         this.enemyMarkers = new EnemyMarkers(document.getElementById('enemy-markers'));
+
+        // Vue 3D miniature de la cible accrochée, intégrée au panneau LOCKED TARGET.
+        this.targetView = new TargetView(this.targetInfoEl);
+
+        // Indicateur de vélocité (prograde marker, façon Star Citizen).
+        this.velocityVectorEl = document.getElementById('velocity-vector');
+        this._velocityVisible = false;
 
         this.projectileSpeed = 380;
         this.projectileLifetime = 2.2;
@@ -358,6 +366,7 @@ export class Game {
         this._updateHud();
         this._updateLockHUD();
         this._updateLeadIndicators();
+        this._updateVelocityVector();
         if (this.enemyMarkers) {
             this.enemyMarkers.update(
                 this.enemies,
@@ -365,6 +374,14 @@ export class Game {
                 this.sceneManager.camera,
                 window.innerWidth,
                 window.innerHeight,
+            );
+        }
+        if (this.targetView) {
+            this.targetView.update(
+                this.targetLock?.target,
+                this.sceneManager.camera,
+                this.ship.object.position,
+                dt,
             );
         }
 
@@ -512,6 +529,72 @@ export class Game {
                 arrow.style.transform =
                     `translate(${px}px, ${py}px) translate(-50%, -50%) rotate(${angle}rad) scale(1.6)`;
             }
+        }
+    }
+
+    /**
+     * Indicateur de vélocité (prograde marker) façon Star Citizen : un petit
+     * marqueur projeté à l'écran dans la direction réelle de déplacement du
+     * vaisseau. Caché si la vitesse est trop faible ou si la direction est
+     * derrière la caméra.
+     */
+    _updateVelocityVector() {
+        const el = this.velocityVectorEl;
+        if (!el) return;
+
+        const vel = this.ship.velocity;
+        const speed2 = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
+        // Seuil : ~3 m/s pour éviter le jitter à l'arrêt.
+        if (speed2 < 9) {
+            if (this._velocityVisible) {
+                el.classList.remove('visible');
+                this._velocityVisible = false;
+            }
+            return;
+        }
+
+        const cam = this.sceneManager.camera;
+        const camFwd = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
+
+        // Point virtuel loin devant le vaisseau dans la direction de la vélocité.
+        const speed = Math.sqrt(speed2);
+        const inv = 1 / speed;
+        const D = 2000;
+        const px = this.ship.object.position.x + vel.x * inv * D;
+        const py = this.ship.object.position.y + vel.y * inv * D;
+        const pz = this.ship.object.position.z + vel.z * inv * D;
+
+        // Test "devant la caméra" via produit scalaire — project() est non
+        // fiable derrière.
+        const dx = px - cam.position.x;
+        const dy = py - cam.position.y;
+        const dz = pz - cam.position.z;
+        const fwdDot = dx * camFwd.x + dy * camFwd.y + dz * camFwd.z;
+        if (fwdDot <= 0.1) {
+            if (this._velocityVisible) {
+                el.classList.remove('visible');
+                this._velocityVisible = false;
+            }
+            return;
+        }
+
+        const ndc = this._tmpNdc.set(px, py, pz).project(cam);
+        if (Math.abs(ndc.x) > 1.05 || Math.abs(ndc.y) > 1.05) {
+            if (this._velocityVisible) {
+                el.classList.remove('visible');
+                this._velocityVisible = false;
+            }
+            return;
+        }
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const sx = (ndc.x * 0.5 + 0.5) * w;
+        const sy = (-ndc.y * 0.5 + 0.5) * h;
+        el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -50%)`;
+        if (!this._velocityVisible) {
+            el.classList.add('visible');
+            this._velocityVisible = true;
         }
     }
 
@@ -706,6 +789,11 @@ export class Game {
         this.gameOver = true;
         this.sounds.stopEngine();
         this.music.playDefeat();
+        this.targetView?.hide();
+        if (this.velocityVectorEl && this._velocityVisible) {
+            this.velocityVectorEl.classList.remove('visible');
+            this._velocityVisible = false;
+        }
         this.hud.showDefeat({
             wave: this.waveManager.wave,
             kills: this.stats.kills,
@@ -802,6 +890,11 @@ export class Game {
         this.stats.runTimeSec = 0;
         this.stats.powerupsCollected = 0;
         this.enemyMarkers?.hideAll();
+        this.targetView?.hide();
+        if (this.velocityVectorEl && this._velocityVisible) {
+            this.velocityVectorEl.classList.remove('visible');
+            this._velocityVisible = false;
+        }
         this.combat.playerShotsFired = 0;
         this.combat.playerShotsHit = 0;
         this.missiles.playerMissilesFired = 0;

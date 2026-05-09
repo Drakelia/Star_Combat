@@ -127,7 +127,8 @@ Drops aléatoires à la mort d'ennemis (durée de vie ~30 s, beacon coloré visi
 - **COQUE** + segments de **bouclier**.
 - **VEL** vitesse, **CIBLES** = nombre total de missiles verrouillés (somme des tiers sur toutes les cibles), **MSL** cooldown missiles, **ENN** ennemis restants.
 - **BOOST** réserve restante.
-- **Cible accrochée** (si T appuyé) : carré 4-coins autour de la cible, panneau d'infos top-left, flèche directionnelle hors champ.
+- **Cible accrochée** (si T appuyé) : carré 4-coins autour de la cible, panneau d'infos top-left intégrant une **vue 3D miniature** de l'unité (orientation en temps réel sous l'angle où vous la voyez, indicateur **FIRING** quand elle ouvre le feu), flèche directionnelle hors champ.
+- **Vecteur de vélocité** (prograde marker, façon Star Citizen) : petit cercle vert projeté à l'écran indiquant la direction réelle de déplacement du vaisseau. Caché à très basse vitesse ou quand la direction est derrière la caméra.
 
 ### Pause et game over
 

@@ -611,13 +611,46 @@ html, body {
     transform: scale(var(--ui-scale));
 }
 #target-info.visible { display: block; }
+#target-info .ti-preview {
+    position: relative;
+    margin-top: 8px;
+    width: 100%;
+    height: 140px;
+    background: linear-gradient(180deg,
+        rgba(255, 45, 85, 0.08) 0%,
+        rgba(8, 8, 12, 0.6) 100%);
+    border: 1px solid var(--a-line);
+    overflow: hidden;
+}
+#target-info .ti-preview-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+#target-info .ti-preview-fire {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: var(--a-warn);
+    background: rgba(255, 184, 74, 0.12);
+    border: 1px solid var(--a-warn);
+    padding: 2px 6px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.12s linear;
+    pointer-events: none;
+}
+#target-info.firing .ti-preview-fire { opacity: 1; }
 #target-info .ti-name {
     font-family: 'Orbitron', sans-serif;
     font-size: 22px;
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    margin-top: 6px;
+    margin-top: 8px;
     color: var(--a-fg);
 }
 #target-info .ti-class {
@@ -1437,6 +1470,29 @@ html, body {
     border: none;
     border-radius: 0;
     cursor: pointer;
+}
+
+/* ============================================================
+   VELOCITY VECTOR (prograde marker) — Star-Citizen style
+   ============================================================ */
+#velocity-vector {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 36px;
+    height: 36px;
+    pointer-events: none;
+    z-index: 6;
+    transform: translate(-9999px, -9999px);
+    will-change: transform;
+    display: none;
+    filter: drop-shadow(0 0 4px rgba(61, 220, 151, 0.55));
+}
+#velocity-vector.visible { display: block; }
+#velocity-vector svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
 }
 
 /* ============================================================
