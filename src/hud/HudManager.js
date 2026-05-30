@@ -53,6 +53,10 @@ export class HudManager {
         this.pauseTimeEl = document.getElementById('pause-time');
         this.pauseStripeEl = document.getElementById('pause-stripe');
 
+        // Bannière de réapparition coop
+        this.respawnBannerEl = document.getElementById('respawn-banner');
+        this._respawnCache = null;
+
         // Defeat overlay
         this.defeatOverlayEl = document.getElementById('defeat-overlay');
         this.defeatFieldEls = {
@@ -267,6 +271,28 @@ export class HudManager {
     /**
      * Affiche l'overlay de défaite avec le récap de run.
      */
+    /**
+     * Bannière « Réapparition dans X s » (coop). `seconds=null` ⇒ masquée.
+     * Quantise à la seconde pour n'écrire le DOM qu'au changement.
+     */
+    setRespawn(seconds) {
+        const el = this.respawnBannerEl;
+        if (!el) return;
+        if (seconds == null) {
+            if (this._respawnCache !== null) {
+                el.classList.remove('show');
+                this._respawnCache = null;
+            }
+            return;
+        }
+        const q = Math.max(0, Math.ceil(seconds));
+        if (this._respawnCache !== q) {
+            el.textContent = `Réapparition dans ${q} s`;
+            if (this._respawnCache === null) el.classList.add('show');
+            this._respawnCache = q;
+        }
+    }
+
     showDefeat(payload, onRestart) {
         if (!this.defeatOverlayEl) return;
         const {

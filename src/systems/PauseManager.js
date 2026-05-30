@@ -38,7 +38,11 @@ export class PauseManager {
     pause() {
         if (this.paused) return;
         this.paused = true;
-        if (this.overlayEl) this.overlayEl.classList.add('show');
+        if (this.overlayEl) {
+            // En coop (non-bloquant), une note rappelle que la sim continue.
+            this.overlayEl.classList.toggle('coop', !this.blocking);
+            this.overlayEl.classList.add('show');
+        }
         this.sounds?.stopEngine?.();
     }
 

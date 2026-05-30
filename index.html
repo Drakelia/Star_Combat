@@ -317,6 +317,7 @@
     </div>
 
     <div id="enemy-markers" aria-hidden="true"></div>
+    <div id="ally-markers" aria-hidden="true"></div>
 
     <!-- Crosshair central — petite croix simple. -->
     <div id="crosshair-center" aria-hidden="true">
@@ -328,6 +329,9 @@
     </div>
     <div id="reticle" aria-hidden="true"></div>
 
+    <!-- Bannière de réapparition coop (joueur abattu, en attente de respawn). -->
+    <div id="respawn-banner" aria-hidden="true"></div>
+
     <!-- ============================================================
          PAUSE OVERLAY
          ============================================================ -->
@@ -335,6 +339,7 @@
         <div id="pause-card">
             <div class="kicker red" id="pause-stripe">▸ MISSION PAUSED</div>
             <h1>PAUSE<span class="dot">.</span></h1>
+            <div id="pause-coop-note">▸ MULTI — la simulation continue pour tes coéquipiers</div>
 
             <div id="pause-stats">
                 <div>

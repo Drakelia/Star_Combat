@@ -1665,6 +1665,79 @@ html, body {
     height: 38px;
 }
 
+/* Marqueurs alliés (coop) — teinte du joueur (currentColor), distincte des
+   ennemis. Losange à l'écran, flèche directionnelle hors-champ. */
+#ally-markers {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    overflow: hidden;
+}
+.ally-marker {
+    position: absolute;
+    left: 0; top: 0;
+    width: 24px;
+    height: 24px;
+    color: #3ddc97;
+    will-change: transform;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.7));
+}
+.ally-marker svg { width: 100%; height: 100%; overflow: visible; }
+.ally-marker svg > * { visibility: hidden; }
+.ally-marker[data-mode="on"] .am-diamond,
+.ally-marker[data-mode="off"] .am-arrow { visibility: visible; }
+.ally-marker .am-diamond {
+    stroke: currentColor;
+    stroke-width: 2.2;
+    fill: color-mix(in srgb, currentColor 22%, transparent);
+}
+.ally-marker .am-arrow {
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: currentColor;
+}
+.ally-marker[data-mode="off"] { opacity: 0.95; }
+
+/* Bannière de réapparition coop — centrée bas, visible quand abattu. */
+#respawn-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 18%;
+    transform: translate(-50%, 12px);
+    z-index: 7;
+    pointer-events: none;
+    padding: 10px 22px;
+    border: 1px solid var(--a-red, #ff2d55);
+    border-radius: 4px;
+    background: rgba(20, 6, 10, 0.6);
+    color: #ffd2da;
+    font: 600 18px/1 'Rajdhani', system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 45, 85, 0.7);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+#respawn-banner.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+/* Note coop dans l'overlay de pause : visible seulement en multi (non-bloquant). */
+#pause-coop-note {
+    display: none;
+    margin: -4px 0 14px;
+    color: var(--a-primary, #3ddc97);
+    font: 600 13px/1.3 'Rajdhani', system-ui, sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.9;
+}
+#pause-overlay.coop #pause-coop-note { display: block; }
+#pause-overlay.coop #pause-stripe { display: none; }
+
 /* ============================================================
    PAUSE — colonnes contrôles + audio
    ============================================================ */

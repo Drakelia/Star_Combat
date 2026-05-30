@@ -16,7 +16,17 @@ python -m http.server 8000
 
 Puis ouvrez `http://localhost:<port>/`.
 
-Au lancement, choisissez votre difficulté (**CADET / PILOT / ACE**). Elle multiplie le nombre et la résistance des ennemis (×0.5, ×1, ×1.7). Vous pouvez aussi régler depuis le menu les volumes **EFFETS** et **MUSIQUE**.
+Au lancement, le menu propose **▶ SOLO** ou **⊕ MULTIJOUEUR**. En solo, choisissez votre difficulté (**CADET / PILOT / ACE**) : elle multiplie le nombre et la résistance des ennemis (×0.5, ×1, ×1.7). Vous pouvez aussi régler les volumes **EFFETS** et **MUSIQUE**.
+
+### Multijoueur (coop)
+
+Le mode coop a besoin d'un petit **serveur de relais Node** (dossier `server/`) qui gère le lobby et fait transiter les messages :
+
+```bash
+cd server && npm install && npm start   # écoute sur ws://0.0.0.0:8080
+```
+
+Chaque joueur ouvre le jeu (servi comme ci-dessus), clique **⊕ MULTIJOUEUR** et rejoint le lobby. Le premier connecté est l'**hôte** ; il lance la partie quand l'équipe est prête. Voir la section [Multijoueur](#multijoueur) pour le détail du fonctionnement.
 
 ## Commandes
 
@@ -52,7 +62,7 @@ La composition évolue avec la vague :
 - **Vague 5+** : **Tanks** — gros PV, lents, dégâts élevés au contact.
 - **Vague 5, 10, 15…** : **Boss** plus grands, plusieurs centaines de PV, équipés de **8 tourelles** indépendantes (lasers, snipers, missiles), accompagnés d'une escorte de fighters/snipers/tanks. À partir de la vague 10, plusieurs boss simultanés.
 
-Les PV des ennemis et leur nombre montent à chaque vague.
+Les PV des ennemis et leur nombre montent à chaque vague. En **coop**, le nombre d'ennemis par vague est en plus multiplié par le **nombre de joueurs** (un escadron de 3 affronte ~3× plus d'ennemis qu'un solo).
 
 ## Mécaniques
 
@@ -121,6 +131,29 @@ Drops aléatoires à la mort d'ennemis (durée de vie ~30 s, beacon coloré visi
 - Étoile et planètes lointaines comme repères visuels.
 - Les ennemis tiennent compte des astéroïdes pour esquiver et tirer.
 
+## Multijoueur
+
+Le mode coop fait jouer **plusieurs pilotes dans le même monde** contre les vagues. Il s'appuie sur un serveur de relais Node (voir [Multijoueur (coop)](#multijoueur-coop) pour le lancer).
+
+### Lobby et lancement
+
+- Le menu **⊕ MULTIJOUEUR** connecte au serveur et affiche le **lobby** (liste des pilotes). Le premier connecté devient l'**hôte**.
+- L'hôte lance la partie ; tous les clients démarrent en même temps. Un joueur qui se connecte en cours de partie rejoint à la volée (*late-join*).
+- Si l'hôte quitte, la session se termine et tout le monde revient au menu.
+
+### Monde partagé
+
+- Tous les joueurs partagent **le même monde** : champ d'astéroïdes, ennemis, powerups et vagues sont synchronisés. Le champ d'astéroïdes est généré à partir d'une **graine commune** et son recyclage au fil des déplacements reste identique chez tous (mêmes astéroïdes, mêmes positions).
+- Chaque joueur **possède son vaisseau** et le pilote en local (visée, lead, lock-on, missiles : exactement les mêmes aides qu'en solo). Les tirs touchent là où vous visez ; l'hôte arbitre les dégâts subis par les ennemis.
+
+### Coéquipiers, réapparition, défaite
+
+- Les alliés apparaissent à l'écran sous forme de **losange vert** (et d'une **flèche verte** au bord d'écran quand ils sont hors champ) — couleur distincte des marqueurs d'ennemis.
+- Un pilote détruit n'est pas éliminé tant qu'au moins un coéquipier est en vie : il **réapparaît au bout de 30 s** près d'un allié vivant, avec un **bouclier d'invincibilité** de quelques secondes. Le HUD affiche « **Réapparition dans X s** » pendant l'attente.
+- La **défaite n'est collective** que lorsque **tous** les joueurs sont à terre en même temps.
+- La **pause (Échap)** est **non-bloquante** en coop : votre overlay s'affiche mais la simulation continue pour les autres. Vous pouvez régler le volume ou quitter sans figer la partie de l'équipe.
+- L'écran de défaite reste **propre à chaque joueur** (vos kills, votre précision, vos dégâts subis).
+
 ### HUD
 
 - **VAGUE** + statut (intermission / active / boss).
@@ -129,10 +162,11 @@ Drops aléatoires à la mort d'ennemis (durée de vie ~30 s, beacon coloré visi
 - **BOOST** réserve restante.
 - **Cible accrochée** (si T appuyé) : carré 4-coins autour de la cible, panneau d'infos top-left intégrant une **vue 3D miniature** de l'unité (orientation en temps réel sous l'angle où vous la voyez, indicateur **FIRING** quand elle ouvre le feu), flèche directionnelle hors champ.
 - **Vecteur de vélocité** (prograde marker, façon Star Citizen) : petit cercle vert projeté à l'écran indiquant la direction réelle de déplacement du vaisseau. Caché à très basse vitesse ou quand la direction est derrière la caméra.
+- **Coop** : losanges/flèches vertes sur les coéquipiers, et bannière « Réapparition dans X s » quand vous êtes à terre (voir [Multijoueur](#multijoueur)).
 
 ### Pause et game over
 
-- **Échap** suspend la partie (overlay PAUSE) ; vous pouvez reprendre ou retourner au menu de difficulté.
+- **Échap** suspend la partie (overlay PAUSE) ; vous pouvez reprendre ou retourner au menu. En **coop**, la pause est non-bloquante : la simulation continue pour les autres.
 - À la destruction du vaisseau, l'écran affiche : vague atteinte, durée, kills, tirs et précision, missiles tirés, dégâts subis, powerups récupérés. Le bouton renvoie au menu de difficulté.
 
 ## Stack technique
@@ -142,5 +176,6 @@ Drops aléatoires à la mort d'ennemis (durée de vie ~30 s, beacon coloré visi
 - Une seule boucle `requestAnimationFrame` dans `Game._loop`.
 - Collisions contre les astéroïdes via `SpatialGrid` statique.
 - Trails via ring buffer (`TrailLine`), explosions poolées, HUD diff-based.
+- **Coop** : serveur de relais **Node + `ws`** (`server/`, aucune logique de jeu — l'autorité de simulation est chez l'hôte), client WebSocket (`src/net/`), monde déterministe via PRNG seedé (`util/Rng.js`).
 
 Voir [CLAUDE.md](CLAUDE.md) pour les conventions d'architecture et les règles de performance.

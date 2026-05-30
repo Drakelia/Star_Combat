@@ -23,6 +23,7 @@ import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
 import { PauseManager } from './systems/PauseManager.js';
 import { TargetLock, enemyLabel } from './systems/TargetLock.js';
 import { EnemyMarkers } from './hud/EnemyMarkers.js';
+import { AllyMarkers } from './hud/AllyMarkers.js';
 import { TargetView } from './hud/TargetView.js';
 import { mulberry32, randomSeed } from './util/Rng.js';
 import { CoopSystem } from './systems/CoopSystem.js';
@@ -102,6 +103,7 @@ export class Game {
 
         // Marqueurs de type sur les ennemis non-accrochés.
         this.enemyMarkers = new EnemyMarkers(document.getElementById('enemy-markers'));
+        this.allyMarkers = new AllyMarkers(document.getElementById('ally-markers'));
 
         // Vue 3D miniature de la cible accrochée, intégrée au panneau LOCKED TARGET.
         this.targetView = new TargetView(this.targetInfoEl);
@@ -130,6 +132,9 @@ export class Game {
         // Orchestrateur coop (réseau + lobby). Inerte tant que `connect()` n'est
         // pas appelé : en solo il n'ouvre aucune connexion.
         this.coop = new CoopSystem(this);
+        // Callback de recyclage de champ (hôte) → diffusion réseau. Créé une fois
+        // (pas de closure recréée par-frame), passé par référence au streamer.
+        this._streamEmit = (idx, seed, center) => this.coop && this.coop.sendStream(idx, seed, center);
 
         window.addEventListener('resize', () => this.sceneManager.onResize());
     }
@@ -392,10 +397,7 @@ export class Game {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i];
             if (!e.alive) {
-                this.stats.kills += 1;
-                if (e.kind && this.stats.killsByType[e.kind] !== undefined) {
-                    this.stats.killsByType[e.kind] += 1;
-                }
+                this._creditKill(e);
                 const dist = e.object.position.distanceTo(this.ship.object.position);
                 if (dist < 120) {
                     const k = 1 - dist / 120;
@@ -428,7 +430,10 @@ export class Game {
         // Collisions vaisseau-vaisseau (coop). No-op en solo (1 seul joueur).
         if (this.players.length > 1) this.collisions.resolvePlayers(this.players);
         this.effects.update(dt);
-        this.streamer.update(dt, this.ship.object.position);
+        // Streaming d'astéroïdes : focus = tous les joueurs (union). En hôte, on
+        // diffuse chaque recyclage ; en solo, pas d'émission. Le client ne fait
+        // pas tourner le streamer (il rejoue via CoopSystem → applyRemote).
+        this.streamer.update(dt, this.players, this.mode === 'host' ? this._streamEmit : null);
         this.waveManager.update(dt, this.players);
         if (this.waveManager.justAdvanced) this._flashWaveBanner();
         this.chaseCamera.update(dt);
@@ -467,6 +472,11 @@ export class Game {
                 window.innerWidth,
                 window.innerHeight,
             );
+        }
+        if (this.allyMarkers && this.players.length > 1) {
+            this.allyMarkers.update(this.players, this.ship, this.sceneManager.camera, window.innerWidth, window.innerHeight);
+        } else if (this.allyMarkers) {
+            this.allyMarkers.hideAll();
         }
         if (this.targetView) {
             this.targetView.update(
@@ -553,6 +563,11 @@ export class Game {
         if (this.enemyMarkers) {
             this.enemyMarkers.update(this.enemies, this.targetLock?.target, cam, window.innerWidth, window.innerHeight);
         }
+        if (this.allyMarkers && this.players.length > 1) {
+            this.allyMarkers.update(this.players, this.ship, cam, window.innerWidth, window.innerHeight);
+        } else if (this.allyMarkers) {
+            this.allyMarkers.hideAll();
+        }
         if (this.targetView) {
             this.targetView.update(this.targetLock?.target, cam, this.ship.object.position, dt);
         }
@@ -568,6 +583,10 @@ export class Game {
             boost: this.shipController.getBoostStatus(),
             wave: this.waveManager.getStatus(),
         });
+        // Décompte de réapparition (coop) : visible tant que le joueur local est
+        // abattu. En solo, `downed` reste faux → bannière masquée.
+        const lp = this.localPlayer;
+        this.hud.setRespawn(lp && lp.downed ? lp.respawnTimer : null);
     }
 
     /**
@@ -992,6 +1011,31 @@ export class Game {
      * vivant avec un bouclier d'invincibilité. La défaite n'est déclenchée que
      * lorsque **tous** les joueurs sont à terre simultanément.
      */
+    /**
+     * Crédite une mise à mort au joueur qui a porté le coup fatal. `e._lastHitBy`
+     * est estampillé par CombatSystem/MissileSystem (tirs locaux de l'hôte) ou
+     * par CoopSystem `_onHit` (touche d'un client). Défaut = joueur local (solo,
+     * ou hôte non estampillé). Le détail par type reste sur les stats locales ;
+     * les distants n'ont qu'un compteur `kills` (diffusé dans le snapshot).
+     */
+    _creditKill(e) {
+        const killer = e._lastHitBy;
+        let credited = this.localPlayer;
+        if (killer != null && this.localPlayer.netId !== killer) {
+            for (let i = 0; i < this.players.length; i++) {
+                if (this.players[i].netId === killer) { credited = this.players[i]; break; }
+            }
+        }
+        if (credited === this.localPlayer) {
+            this.stats.kills += 1;
+            if (e.kind && this.stats.killsByType[e.kind] !== undefined) {
+                this.stats.killsByType[e.kind] += 1;
+            }
+        } else if (credited.stats) {
+            credited.stats.kills += 1;
+        }
+    }
+
     _updatePlayersLifecycle(dt) {
         if (this.mode === 'solo') {
             if (!this.ship.alive && !this.gameOver) this._showDefeat();
@@ -1177,6 +1221,7 @@ export class Game {
         this.stats.runTimeSec = 0;
         this.stats.powerupsCollected = 0;
         this.enemyMarkers?.hideAll();
+        this.allyMarkers?.hideAll();
         this.targetView?.hide();
         if (this.velocityVectorEl && this._velocityVisible) {
             this.velocityVectorEl.classList.remove('visible');

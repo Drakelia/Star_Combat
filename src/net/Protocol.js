@@ -23,10 +23,11 @@ export const MSG = {
     HIT: 'hit',                 // client → hôte : { e:enemyNetId, dmg, mis? } (dégât arbitré)
     SHOT: 'shot',               // client → hôte : { x,y,z, vx,vy,vz, life, col } (projectile visuel)
     MISSILE: 'missile',         // client → hôte : { x,y,z, dx,dy,dz, tgt } (missile visuel, phase B)
+    STREAM: 'stream',           // hôte → clients : { idx, seed, cx,cy,cz } (recyclage de champ déterministe, phase D)
 };
 
 /** Types relayés par le serveur selon le rôle de l'émetteur (pas du contrôle). */
-export const RELAYED = new Set([MSG.INPUT, MSG.SNAPSHOT, MSG.EVENT, MSG.HIT, MSG.SHOT, MSG.MISSILE]);
+export const RELAYED = new Set([MSG.INPUT, MSG.SNAPSHOT, MSG.EVENT, MSG.HIT, MSG.SHOT, MSG.MISSILE, MSG.STREAM]);
 
 export function encode(obj) {
     return JSON.stringify(obj);

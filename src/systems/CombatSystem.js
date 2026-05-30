@@ -20,6 +20,9 @@ export class CombatSystem {
         //    pour que l'hôte applique réellement le dégât.
         this.authoritative = true;
         this.onPlayerHit = null;
+        // netId du joueur local (coop) : estampille l'ennemi touché (`_lastHitBy`)
+        // pour créditer le bon joueur à la mort. null en solo (→ joueur local).
+        this.localNetId = null;
     }
 
     spawnProjectile(opts) {
@@ -51,6 +54,7 @@ export class CombatSystem {
                             this.playerShotsHit++;
                             if (this.authoritative) {
                                 // Solo / hôte : dégât appliqué directement.
+                                if (this.localNetId != null) e._lastHitBy = this.localNetId;
                                 e.takeDamage(p.damage);
                                 if (e.alive) {
                                     this.effects?.spark(p.position);

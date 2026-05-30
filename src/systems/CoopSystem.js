@@ -116,6 +116,7 @@ export class CoopSystem {
         net.on(MSG.HIT, (m) => this._onHit(m));
         net.on(MSG.SHOT, (m) => this._onShot(m));
         net.on(MSG.MISSILE, (m) => this._onMissile(m));
+        net.on(MSG.STREAM, (m) => this._onStream(m));
         net.on('close', () => this._onClose());
         net.on('error', (e) => this.onError?.(e));
         await net.connect();
@@ -136,11 +137,13 @@ export class CoopSystem {
             // Restaure l'arbitrage solo (dégât appliqué directement).
             this.game.combat.authoritative = true;
             this.game.combat.onPlayerHit = null;
+            this.game.combat.localNetId = null;
         }
         if (this.game.missiles) {
             this.game.missiles.onSpawn = null;
             this.game.missiles.authoritative = true;
             this.game.missiles.onPlayerHit = null;
+            this.game.missiles.localNetId = null;
         }
         if (this.game.shipController) this.game.shipController.combat = this.game.combat;
         this._clearNetEntities();
@@ -196,6 +199,9 @@ export class CoopSystem {
             this.game.missiles.authoritative = true;
             this.game.missiles.onPlayerHit = null;
             this.game.missiles.onSpawn = (m, enemy) => this._onHostMissile(m, enemy);
+            // Crédit de kill : les tirs locaux de l'hôte estampillent l'ennemi.
+            this.game.combat.localNetId = this.id;
+            this.game.missiles.localNetId = this.id;
         } else {
             // Client : « le tireur simule, l'hôte arbitre ». Il tire RÉELLEMENT
             // en local (hit-detection contre les miroirs), n'altère pas le hp
@@ -256,7 +262,11 @@ export class CoopSystem {
         const player = {
             id, netId: id, ship, isLocal: false, controller: null,
             color: PLAYER_COLORS[colorIdx], respawnTimer: 0, downed: false,
-            stats: null,
+            // Stats minimales côté hôte : seul `kills` est diffusé (snapshot) pour
+            // l'écran de défaite du distant ; les autres compteurs sont locaux à sa
+            // machine. `powerupsCollected` n'est présent que pour éviter un NaN
+            // quand l'hôte crédite un powerup ramassé par un distant.
+            stats: { kills: 0, powerupsCollected: 0 },
         };
         this.remotes.set(id, { id, player, ship, input: null, hasInput: false });
     }
@@ -323,6 +333,8 @@ export class CoopSystem {
                 qx: q.x, qy: q.y, qz: q.z, qw: q.w,
                 hp: s.hp, a: s.alive ? 1 : 0, d: p.downed ? 1 : 0,
                 st: s.shieldTime, ot: s.overchargeTime, rt: s.rapidTime,
+                rsp: p.downed ? p.respawnTimer : 0,
+                k: p.stats ? (p.stats.kills || 0) : 0,
             });
         }
 
@@ -383,9 +395,9 @@ export class CoopSystem {
 
     /**
      * Hôte : un client signale avoir touché un ennemi (hit-detection faite chez
-     * lui contre les miroirs). On applique le dégât à l'ennemi réel, on borne
-     * sommairement et on crédite le tireur (stats Phase C). Le hp/mort repart
-     * dans le snapshot/explosion existants.
+     * lui contre les miroirs). On borne sommairement, on estampille le tireur
+     * (`_lastHitBy` → crédit de kill par la boucle de morts de Game) puis on
+     * applique le dégât. Le hp/mort repart dans le snapshot/explosion existants.
      */
     _onHit(m) {
         if (!this.isHost) return;
@@ -395,12 +407,8 @@ export class CoopSystem {
         if (!target || !target.alive) return;
         const dmg = m.dmg;
         if (!(dmg > 0) || dmg > MAX_HIT_DAMAGE) return;
+        target._lastHitBy = m.from;
         target.takeDamage(dmg);
-        const r = this.remotes.get(m.from);
-        if (r && r.player.stats) {
-            r.player.stats.shotsHit = (r.player.stats.shotsHit || 0) + 1;
-            if (!target.alive) r.player.stats.kills = (r.player.stats.kills || 0) + 1;
-        }
     }
 
     /**
@@ -511,6 +519,21 @@ export class CoopSystem {
             if (enemies[i].netId === netId) return enemies[i];
         }
         return null;
+    }
+
+    // ============================================================
+    // Streaming d'astéroïdes (phase D) — recyclage déterministe
+    // ============================================================
+
+    /** Hôte : diffuse un recyclage de champ (callback `onRecycle` du streamer). */
+    sendStream(idx, seed, center) {
+        this.net?.send(MSG.STREAM, { idx, seed, cx: center.x, cy: center.y, cz: center.z });
+    }
+
+    /** Client : rejoue un recyclage diffusé par l'hôte (champ + grille synchros). */
+    _onStream(m) {
+        if (this.isHost) return;
+        this.game.streamer.applyRemote(m.idx, m.seed >>> 0, m.cx, m.cy, m.cz);
     }
 
     // ============================================================
@@ -646,6 +669,9 @@ export class CoopSystem {
 
     _applyLocalPlayer(ps) {
         const ship = this.game.ship;
+        // Dégâts subis (stats locales) : l'hôte est autoritaire sur le hp du
+        // vaisseau, on compte donc les baisses reçues via snapshot.
+        if (ps.hp < ship.hp) this.game.stats.damageTaken += ship.hp - ps.hp;
         ship.hp = ps.hp;
         // Timers de buff autoritatifs (bouclier / surcharge / tir rapide) : le
         // panneau de buffs du HUD les lit directement sur le vaisseau local.
@@ -666,6 +692,10 @@ export class CoopSystem {
             ship.resetTrail?.();
         }
         this.game.localPlayer.downed = ps.d === 1;
+        if (ps.rsp != null) this.game.localPlayer.respawnTimer = ps.rsp;
+        // Kills attribués par l'hôte (le client ne fait pas tourner la boucle de
+        // morts) : on adopte le total pour l'écran de défaite local.
+        if (ps.k != null) this.game.stats.kills = ps.k;
     }
 
     _addShipMirror(id) {

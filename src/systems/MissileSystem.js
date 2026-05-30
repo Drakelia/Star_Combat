@@ -42,6 +42,9 @@ export class MissileSystem {
         this.authoritative = true;
         this.onPlayerHit = null;
         this.onSpawn = null;
+        // netId du joueur local (coop) : estampille l'ennemi touché (`_lastHitBy`)
+        // pour le crédit de kill. null en solo (→ joueur local).
+        this.localNetId = null;
 
         this._forward = new THREE.Vector3();
         this._toEnemy = new THREE.Vector3();
@@ -66,6 +69,7 @@ export class MissileSystem {
      */
     _hitEnemy(e, m) {
         if (this.authoritative) {
+            if (this.localNetId != null) e._lastHitBy = this.localNetId;
             e.takeDamage(m.damage);
             return !e.alive;
         }

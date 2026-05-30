@@ -117,13 +117,13 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-30 (commit 862021a). Confidence: 100%.
+Last indexed: 2026-05-30 (commit 46de3ee). Confidence: 100%.
 ### Architecture
-This repository is a browser-based 3D space shooter game: it takes player input (mouse aim, keyboard controls) and server-side multiplayer state, runs a real-time game loop that simulates a physics-driven spaceship, asteroid fields, projectiles, and missiles, and renders the resulting scene to a WebGL canvas with a HUD overlay and spatial audio. The game is structured as a client-side JavaScript application (src/) paired with a lightweight Node.js multiplayer server (server/). The client bootstraps via src/main.js, initialises all subsystems (controls, entities, audio, HUD), and drives a per-frame update/render cycle. The server (server/server.js) manages connected sessions and synchronises game state across clients.
+repo is a multiplayer space-combat game: it accepts player input and network messages as inputs, runs a real-time simulation pipeline (physics, AI, combat, projectile/missile systems, asteroid streaming) on a Node.js authoritative server, and renders the resulting game state as an interactive browser-based canvas experience with spatial audio and HUD overlays. The game world is composed of ships, asteroids, planets, and projectiles. A dedicated server (server/server.js) manages authoritative game state and synchronises clients over the network. The client (src/main.js) bootstraps a Phaser-style game loop, consuming server state via NetClient, driving local systems (enemy AI, combat, missiles, asteroid streaming), and presenting the result through visual effects (trail lines), a targeting HUD, and a music/audio layer.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `community-0` | The entities module is the **core simulation layer** of the game's runtime pipel | — |
+| `community-0` | The entities module is the **domain-object layer** of the game runtime — it defi | — |
 ### Entry Points
 - `server/server.js`
 - `src/main.js`
@@ -152,23 +152,23 @@ This repository is a browser-based 3D space shooter game: it takes player input 
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `src/Game.js` | 100.0th %ile | 27 | drakelia |
+| `src/Game.js` | 100.0th %ile | 28 | drakelia |
 | `styles.css` | 99.3th %ile | 15 | drakelia |
-| `src/systems/MissileSystem.js` | 98.7th %ile | 15 | drakelia |
+| `src/systems/MissileSystem.js` | 98.7th %ile | 16 | drakelia |
 | `index.html` | 98.0th %ile | 17 | drakelia |
 | `src/systems/EnemyAI.js` | 97.4th %ile | 9 | drakelia |
 
 ## Code health
-Hotspot health: 6.28/10 (stable) ·
-Average: 6.71/10 ·
-Worst: 1.8/10 (`src/systems/MissileSystem.js`)
+Hotspot health: 6.41/10 (stable) ·
+Average: 6.82/10 ·
+Worst: 3.02/10 (`src/systems/MissileSystem.js`)
 
 ### Critical biomarkers
 - `src/systems/CombatSystem.js` — nested complexity (update) — impact −2.0
 - `src/systems/MissileSystem.js` — nested complexity (update) — impact −1.7
 - `.design-ref/project/charte.jsx` — large method (ChartePanel) — impact −1.5
 - `src/controls/ShipController.js` — complex method (update) — impact −1.3
-- `src/systems/CoopSystem.js` — complex method (_onSnapshot) — impact −0.6
+- `src/systems/MissileSystem.js` — complex method (update) — impact −0.5
 
 ### Repowise MCP Tools
 

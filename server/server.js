@@ -31,8 +31,9 @@ const MSG = {
     HIT: 'hit',
     SHOT: 'shot',
     MISSILE: 'missile',
+    STREAM: 'stream',
 };
-const RELAYED = new Set([MSG.INPUT, MSG.SNAPSHOT, MSG.EVENT, MSG.HIT, MSG.SHOT, MSG.MISSILE]);
+const RELAYED = new Set([MSG.INPUT, MSG.SNAPSHOT, MSG.EVENT, MSG.HIT, MSG.SHOT, MSG.MISSILE, MSG.STREAM]);
 
 // État de session unique.
 const session = { started: false, seed: null, difficulty: 1 };
