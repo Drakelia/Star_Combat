@@ -26,17 +26,34 @@ export class PowerupSystem {
         this.list.push(p);
     }
 
-    update(dt, ship, onCollect) {
-        const shipPos = ship.object.position;
+    /**
+     * @param {Array} players  Roster (≥1). En coop, le premier joueur vivant qui
+     *   chevauche un powerup le ramasse (partage premier-arrivé). En solo, la
+     *   liste contient le seul joueur local → comportement identique.
+     * @param {(type, powerup, collectorPlayer) => void} onCollect
+     */
+    update(dt, players, onCollect) {
         for (let i = this.list.length - 1; i >= 0; i--) {
             const p = this.list[i];
-            p.update(dt, shipPos);
 
-            if (p.alive) {
-                this._tmp.subVectors(shipPos, p.object.position);
+            // Joueur vivant le plus proche : sert au beacon (échelle) et à la
+            // détection de ramassage.
+            let nearest = null;
+            let nd2 = Infinity;
+            for (let j = 0; j < players.length; j++) {
+                const s = players[j].ship;
+                if (!s.alive) continue;
+                this._tmp.subVectors(s.object.position, p.object.position);
+                const d2 = this._tmp.lengthSq();
+                if (d2 < nd2) { nd2 = d2; nearest = players[j]; }
+            }
+
+            p.update(dt, nearest ? nearest.ship.object.position : null);
+
+            if (p.alive && nearest) {
                 const r = p.radius + 1.5;
-                if (this._tmp.lengthSq() < r * r) {
-                    onCollect(p.type, p);
+                if (nd2 < r * r) {
+                    onCollect(p.type, p, nearest);
                     p.alive = false;
                     this.effects?.spawn(p.object.position, {
                         count: 40,

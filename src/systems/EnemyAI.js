@@ -43,7 +43,7 @@ export class EnemyAI {
         this._forward = new THREE.Vector3();
     }
 
-    updateAll(enemies, target, dt, combat, missileSystem = null, obstacleGrid = null) {
+    updateAll(enemies, players, dt, combat, missileSystem = null, obstacleGrid = null) {
         // Stocké pour la durée de l'update : `_drive` y lit pour le steering
         // d'évitement d'astéroïdes. Pas conservé entre frames.
         this._obstacleGrid = obstacleGrid;
@@ -52,6 +52,11 @@ export class EnemyAI {
         for (let i = 0; i < enemies.length; i++) {
             const e = enemies[i];
             if (!e.alive) continue;
+
+            // Chaque ennemi cible le joueur vivant le plus proche (coop). En
+            // solo, c'est toujours l'unique vaisseau du joueur.
+            const target = this._nearestLivingPlayer(e.object.position, players);
+            if (!target) continue;
 
             // Boss : logique entièrement déléguée à l'entité.
             if (e.kind === 'boss') {
@@ -86,6 +91,27 @@ export class EnemyAI {
                 this._updateFighter(e, target, dt, combat, this._sep);
             }
         }
+    }
+
+    /**
+     * Renvoie le vaisseau du joueur vivant le plus proche de `ePos`, ou `null`
+     * si aucun joueur n'est vivant. Sans allocation (math scalaire) pour rester
+     * dans le hot-path 60 fps même avec 8 joueurs × 60 ennemis.
+     */
+    _nearestLivingPlayer(ePos, players) {
+        let best = null;
+        let bestD2 = Infinity;
+        for (let i = 0; i < players.length; i++) {
+            const ship = players[i].ship;
+            if (!ship.alive) continue;
+            const pp = ship.object.position;
+            const dx = pp.x - ePos.x;
+            const dy = pp.y - ePos.y;
+            const dz = pp.z - ePos.z;
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < bestD2) { bestD2 = d2; best = ship; }
+        }
+        return best;
     }
 
     /**

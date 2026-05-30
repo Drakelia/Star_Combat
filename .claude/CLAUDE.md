@@ -117,9 +117,9 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-28 (commit 3479e49). Confidence: 100%.
+Last indexed: 2026-05-28 (commit 5befd49). Confidence: 100%.
 ### Architecture
-repo is a browser-based 3D space shooter game: it takes player input (keyboard/gamepad controls) and game configuration, runs a real-time simulation loop through entity management, physics, wave spawning, and collision systems, and renders the output as an interactive WebGL scene with a HUD overlay and spatial audio. The game bootstraps from src/main.js, which initialises a Three.js WebGL renderer and hands off to src/Game.js — the central orchestrator. From there, a scene graph is assembled (starfield background, player ship, enemies, projectiles, powerups), a chase camera tracks the player, and discrete systems (wave management, missile guidance, powerup logic, shield state, boost mechanics) tick each frame. Audio is managed independently via MusicManager.
+repo is a browser-based 3D space shooter game: it takes player input (keyboard/mouse controls) and game configuration data, runs a real-time simulation pipeline through Three.js scene management, physics, enemy AI, and collision detection, and renders an interactive space combat experience with asteroids, enemy ships, planets, a parallax starfield, and a HUD overlay to the browser canvas. The game loop begins at src/main.js, which bootstraps the Three.js renderer and wires together all subsystems. Player input flows through a control layer (including boost state management), drives a player ship entity, and is evaluated against enemy entities (Sniper, Tank) and environmental hazards (asteroids, asteroid fields). Each frame, the SceneManager orchestrates entity updates, the ChaseCamera follows the player, AsteroidStreamer procedurally streams asteroid content, HudManager composites on-screen indicators (including EnemyMarkers), and Explosion effects are spawned on collision.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -151,23 +151,23 @@ repo is a browser-based 3D space shooter game: it takes player input (keyboard/g
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `src/Game.js` | 97.9th %ile | 26 | drakelia |
-| `src/systems/MissileSystem.js` | 95.7th %ile | 14 | drakelia |
-| `src/systems/EnemyAI.js` | 93.6th %ile | 8 | drakelia |
-| `src/hud/HudManager.js` | 91.5th %ile | 6 | drakelia |
-| `src/audio/SoundManager.js` | 89.4th %ile | 4 | drakelia |
+| `src/Game.js` | 100.0th %ile | 26 | drakelia |
+| `src/systems/MissileSystem.js` | 99.2th %ile | 14 | drakelia |
+| `src/systems/EnemyAI.js` | 98.3th %ile | 8 | drakelia |
+| `src/hud/HudManager.js` | 97.5th %ile | 6 | drakelia |
+| `src/audio/SoundManager.js` | 96.7th %ile | 4 | drakelia |
 
 ## Code health
-Hotspot health: 5.63/10 (stable) ·
-Average: 6.56/10 ·
+Hotspot health: 6.26/10 (stable) ·
+Average: 6.57/10 ·
 Worst: 1.0/10 (`src/systems/MissileSystem.js`)
 
 ### Critical biomarkers
 - `src/systems/MissileSystem.js` — nested complexity (update) — impact −1.7
+- `src/systems/CombatSystem.js` — hidden coupling — impact −1.5
+- `.design-ref/project/charte.jsx` — large method (ChartePanel) — impact −1.5
+- `src/controls/ShipController.js` — complex method (update) — impact −1.3
 - `src/systems/MissileSystem.js` — hidden coupling — impact −0.9
-- `src/systems/MissileSystem.js` — complex method (update) — impact −0.5
-- `.design-ref/project/direction-a-v2.jsx` — large method (A2Hud) — impact −0.4
-- `src/Game.js` — complex method (_updateLeadIndicators) — impact −0.3
 
 ### Repowise MCP Tools
 

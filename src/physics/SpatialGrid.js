@@ -83,6 +83,12 @@ export class SpatialGrid {
         for (const b of bodies) this.removeBody(b);
     }
 
+    /** Vide entièrement la grille (toutes les cellules + la liste de corps). */
+    clear() {
+        this.cells.clear();
+        this.bodies.length = 0;
+    }
+
     /**
      * Return all bodies within `radius` of `point`. Deduplicates.
      *

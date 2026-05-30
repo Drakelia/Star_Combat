@@ -1111,33 +1111,159 @@ html, body {
     letter-spacing: 0.12em;
 }
 
-#start-play {
+#start-actions {
     margin-top: 22px;
-    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+#start-solo,
+#start-multi {
     height: 64px;
-    background: var(--a-red);
-    color: var(--a-bg);
     border: none;
     font-family: 'Orbitron', sans-serif;
     font-weight: 900;
-    font-size: 20px;
-    letter-spacing: 0.24em;
+    font-size: 18px;
+    letter-spacing: 0.18em;
     cursor: pointer;
-    position: relative;
     text-transform: uppercase;
 }
-#start-play:hover { filter: brightness(1.1); }
-#start-play .enter-chip {
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: var(--a-bg);
-    color: var(--a-red);
-    padding: 4px 8px;
-    font-size: 10px;
-    letter-spacing: 0.18em;
+#start-solo { background: var(--a-red); color: var(--a-bg); }
+#start-solo:hover { filter: brightness(1.1); }
+#start-multi {
+    background: transparent;
+    color: #3ddc97;
+    border: 1px solid #3ddc97;
 }
+#start-multi:hover { background: rgba(61, 220, 151, 0.12); }
+
+/* ============================================================
+   LOBBY OVERLAY (coop)
+   ============================================================ */
+#lobby-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 8, 12, 0.82);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    /* Au-dessus de #start-overlay (z-index 200) : sinon le lobby est masqué
+       derrière le menu opaque et MULTIJOUEUR « ne fait rien ». */
+    z-index: 260;
+    backdrop-filter: blur(4px);
+    font-family: 'Rajdhani', sans-serif;
+}
+#lobby-overlay.show {
+    display: flex;
+    animation: fade-in 0.2s ease-out;
+}
+#lobby-card {
+    position: relative;
+    width: min(560px, 92vw);
+    padding: 40px 44px;
+    background: var(--a-panel);
+    border: 1px solid #3ddc97;
+    backdrop-filter: blur(8px);
+    color: var(--a-fg);
+}
+#lobby-title {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 56px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    margin: 8px 0 14px;
+    color: #3ddc97;
+}
+#lobby-status {
+    color: var(--a-mid);
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    margin-bottom: 18px;
+}
+#lobby-count-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+#lobby-count-num {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 40px;
+    color: var(--a-fg);
+}
+.lobby-count-label {
+    color: var(--a-mid);
+    letter-spacing: 0.16em;
+    font-size: 13px;
+}
+#lobby-players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 22px;
+    min-height: 22px;
+}
+.lobby-pip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border: 1px solid rgba(61, 220, 151, 0.5);
+    color: var(--a-fg);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+}
+.lobby-pip::before {
+    content: '●';
+    color: #3ddc97;
+    font-size: 11px;
+}
+.lobby-pip.me { border-color: #3ddc97; background: rgba(61, 220, 151, 0.1); }
+.lobby-pip.host::after {
+    content: 'HÔTE';
+    color: #3ddc97;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+}
+#lobby-wait {
+    color: #3ddc97;
+    letter-spacing: 0.12em;
+    font-size: 15px;
+    margin-bottom: 18px;
+}
+#lobby-wait.hidden { display: none; }
+#lobby-actions {
+    display: flex;
+    gap: 12px;
+}
+#lobby-ready,
+#lobby-cancel {
+    height: 56px;
+    border: none;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 0.16em;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+#lobby-ready {
+    flex: 2;
+    background: #3ddc97;
+    color: var(--a-bg);
+}
+#lobby-ready:hover:not(:disabled) { filter: brightness(1.1); }
+#lobby-ready:disabled { opacity: 0.4; cursor: not-allowed; }
+#lobby-ready.hidden { display: none; }
+#lobby-cancel {
+    flex: 1;
+    background: transparent;
+    color: var(--a-mid);
+    border: 1px solid var(--a-mid-dim);
+}
+#lobby-cancel:hover { color: var(--a-fg); border-color: var(--a-mid); }
 
 /* ============================================================
    PAUSE OVERLAY
@@ -1613,7 +1739,7 @@ html, body {
     .diff-btn .diff-name { font-size: 15px; }
     .diff-btn .diff-desc { font-size: 12px; }
     .audio-row { margin-top: 8px; }
-    #start-play { height: 54px; font-size: 17px; }
+    #start-solo, #start-multi { height: 54px; font-size: 16px; }
     #defeat-overlay .defeat-grid { padding-top: 56px; }
 }
 

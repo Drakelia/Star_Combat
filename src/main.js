@@ -6,14 +6,21 @@ const DIFFICULTIES = {
     hard:   { multiplier: 1.7, label: 'ACE' },
 };
 
-const game = new Game(document.getElementById('game'));
+// Graine de monde optionnelle via l'URL (`?seed=123`) : fixe la génération
+// procédurale pour des runs reproductibles. Absente → graine aléatoire (solo
+// normal). En coop, c'est l'hôte qui imposera la graine (phase réseau).
+const _seedParam = new URLSearchParams(location.search).get('seed');
+const _worldSeed = _seedParam !== null && _seedParam !== '' ? (Number(_seedParam) >>> 0) : null;
+
+const game = new Game(document.getElementById('game'), { seed: _worldSeed });
 game.start();
 
 // ============================================================
 // Start screen wiring
 // ============================================================
 const overlay = document.getElementById('start-overlay');
-const playBtn = document.getElementById('start-play');
+const soloBtn = document.getElementById('start-solo');
+const multiBtn = document.getElementById('start-multi');
 const diffButtons = document.querySelectorAll('.diff-btn');
 
 let selectedDifficulty = 'normal';
@@ -135,8 +142,15 @@ function isDefeatVisible() {
     return el && el.classList.contains('show');
 }
 
+const lobbyOverlay = document.getElementById('lobby-overlay');
+
+function isLobbyVisible() {
+    return lobbyOverlay && lobbyOverlay.classList.contains('show');
+}
+
 function launchMission() {
     const d = DIFFICULTIES[selectedDifficulty];
+    game.mode = 'solo';
     overlay.classList.add('hidden');
     setTimeout(() => { overlay.style.display = 'none'; }, 600);
     game.beginRun(d.multiplier);
@@ -154,8 +168,8 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-    // Enter sur le menu de démarrage : lancer la mission.
-    if (e.code === 'Enter' && !e.repeat && isMenuVisible()) {
+    // Enter sur le menu de démarrage : lancer la mission solo (pas pendant le lobby).
+    if (e.code === 'Enter' && !e.repeat && isMenuVisible() && !isLobbyVisible()) {
         e.preventDefault();
         launchMission();
         return;
@@ -186,4 +200,88 @@ window.addEventListener('keydown', (e) => {
     }
 }, true);
 
-if (playBtn) playBtn.addEventListener('click', launchMission);
+// ============================================================
+// Coop : lobby + connexion
+// ============================================================
+const lobbyStatus = document.getElementById('lobby-status');
+const lobbyCountNum = document.getElementById('lobby-count-num');
+const lobbyPlayers = document.getElementById('lobby-players');
+const lobbyWait = document.getElementById('lobby-wait');
+const lobbyReady = document.getElementById('lobby-ready');
+const lobbyCancel = document.getElementById('lobby-cancel');
+
+function showLobby() { if (lobbyOverlay) lobbyOverlay.classList.add('show'); }
+function hideLobby() { if (lobbyOverlay) lobbyOverlay.classList.remove('show'); }
+
+function showStartOverlay() {
+    if (!overlay) return;
+    overlay.style.display = '';
+    void overlay.offsetWidth; // rejoue la transition proprement
+    overlay.classList.remove('hidden');
+}
+
+function renderLobby(state) {
+    if (lobbyStatus) {
+        lobbyStatus.textContent = state.isHost
+            ? "Vous êtes l'hôte — lancez quand l'escadron est prêt."
+            : "Connecté — en attente du lancement par l'hôte.";
+    }
+    if (lobbyCountNum) lobbyCountNum.textContent = String(state.count);
+    if (lobbyPlayers) {
+        lobbyPlayers.innerHTML = '';
+        for (const pid of state.players) {
+            const pip = document.createElement('span');
+            pip.className = 'lobby-pip';
+            if (pid === state.id) pip.classList.add('me');
+            if (pid === state.hostId) pip.classList.add('host');
+            pip.textContent = pid === state.id ? 'VOUS' : ('PILOTE ' + pid);
+            lobbyPlayers.appendChild(pip);
+        }
+    }
+    if (lobbyReady) {
+        lobbyReady.classList.toggle('hidden', !state.isHost);
+        lobbyReady.disabled = !state.isHost;
+    }
+    if (lobbyWait) lobbyWait.classList.toggle('hidden', state.isHost);
+}
+
+game.coop.onLobbyUpdate = renderLobby;
+game.coop.onStarted = () => {
+    hideLobby();
+    overlay.classList.add('hidden');
+    overlay.style.display = 'none';
+};
+game.coop.onSessionEnded = () => {
+    hideLobby();
+    if (game.running || game.gameOver) {
+        game.returnToMenu();
+    } else {
+        showStartOverlay();
+    }
+};
+game.coop.onError = () => {
+    if (lobbyStatus) {
+        lobbyStatus.textContent = 'Serveur injoignable — vérifiez que le serveur coop tourne (dossier server/).';
+    }
+};
+
+async function startMultiplayer() {
+    showLobby();
+    if (lobbyStatus) lobbyStatus.textContent = 'Connexion au serveur…';
+    if (lobbyReady) { lobbyReady.classList.add('hidden'); lobbyReady.disabled = true; }
+    if (lobbyWait) lobbyWait.classList.add('hidden');
+    if (lobbyCountNum) lobbyCountNum.textContent = '0';
+    if (lobbyPlayers) lobbyPlayers.innerHTML = '';
+    try {
+        await game.coop.connect();
+    } catch {
+        if (lobbyStatus) {
+            lobbyStatus.textContent = 'Serveur injoignable — vérifiez que le serveur coop tourne (dossier server/).';
+        }
+    }
+}
+
+if (soloBtn) soloBtn.addEventListener('click', launchMission);
+if (multiBtn) multiBtn.addEventListener('click', () => { game.music.playMenu(); startMultiplayer(); });
+if (lobbyReady) lobbyReady.addEventListener('click', () => game.coop.ready());
+if (lobbyCancel) lobbyCancel.addEventListener('click', () => { game.coop.leave(); hideLobby(); });

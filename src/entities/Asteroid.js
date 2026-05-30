@@ -37,21 +37,21 @@ export function makeAsteroidMaterial() {
 }
 
 export class Asteroid {
-    constructor({ radius = 3, position = new THREE.Vector3(), seed = Math.random() } = {}) {
+    constructor({ radius = 3, position = new THREE.Vector3(), seed = Math.random(), rng = Math.random } = {}) {
         this.position = position.clone();
         this.radius = radius * 1.05;
         this.scale = radius;
         this.geoIndex = Math.floor(seed * GEO_POOL_SIZE) % GEO_POOL_SIZE;
 
         this.spin = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.4,
-            (Math.random() - 0.5) * 0.4,
-            (Math.random() - 0.5) * 0.4
+            (rng() - 0.5) * 0.4,
+            (rng() - 0.5) * 0.4,
+            (rng() - 0.5) * 0.4
         );
         this.rotation = new THREE.Euler(
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2,
-            Math.random() * Math.PI * 2
+            rng() * Math.PI * 2,
+            rng() * Math.PI * 2,
+            rng() * Math.PI * 2
         );
         this._quat = new THREE.Quaternion().setFromEuler(this.rotation);
         this._matrix = new THREE.Matrix4();

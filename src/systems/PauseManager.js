@@ -12,6 +12,10 @@ export class PauseManager {
         this.sounds = sounds;
         this.music = music;
         this.paused = false;
+        // En solo, la pause fige la simulation (`Game._loop` court-circuite la
+        // sim si `paused && blocking`). En coop, l'hôte fixe `blocking=false` :
+        // l'overlay s'affiche mais la simulation continue pour tout le monde.
+        this.blocking = true;
         this._wasMusicPlaying = false;
 
         if (this.overlayEl) {

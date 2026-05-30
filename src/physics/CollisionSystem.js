@@ -30,6 +30,12 @@ export class CollisionSystem {
         for (const b of bodies) this.removeBody(b);
     }
 
+    /** Vide tous les corps (utilisé lors d'une régénération du monde). */
+    clear() {
+        this.bodies.length = 0;
+        this.grid.clear();
+    }
+
     /** Return bodies near a point. The returned array is reused — copy if you need to keep it. */
     queryPoint(point, radius) {
         this._candidates.length = 0;
@@ -73,6 +79,42 @@ export class CollisionSystem {
                 const vDotN = body.velocity.dot(this._normal);
                 if (vDotN < 0) {
                     body.velocity.addScaledVector(this._normal, -(1 + restitution) * vDotN);
+                }
+            }
+        }
+    }
+
+    /**
+     * Collisions vaisseau-vaisseau entre joueurs (coop). Boucle O(P²) — P ≤ 8,
+     * donc trivial — avec séparation symétrique : chaque paquet qui se
+     * chevauche est repoussé de moitié de chaque côté, et la composante de
+     * vélocité dirigée l'un vers l'autre est annulée. Les vaisseaux ne sont
+     * jamais insérés dans la grille statique (réservée aux astéroïdes).
+     * Réutilise `_diff`/`_normal` — aucune allocation par frame.
+     */
+    resolvePlayers(players, shipRadius = 1.5) {
+        const minDist = shipRadius * 2;
+        for (let i = 0; i < players.length; i++) {
+            const a = players[i].ship;
+            if (!a.alive) continue;
+            const ap = a.object.position;
+            for (let j = i + 1; j < players.length; j++) {
+                const b = players[j].ship;
+                if (!b.alive) continue;
+                const bp = b.object.position;
+
+                this._diff.subVectors(ap, bp);
+                const dist = this._diff.length();
+                if (dist < minDist && dist > 0.0001) {
+                    this._normal.copy(this._diff).divideScalar(dist);
+                    const half = (minDist - dist) * 0.5;
+                    ap.addScaledVector(this._normal, half);
+                    bp.addScaledVector(this._normal, -half);
+
+                    const va = a.velocity.dot(this._normal);
+                    if (va < 0) a.velocity.addScaledVector(this._normal, -va);
+                    const vb = b.velocity.dot(this._normal);
+                    if (vb > 0) b.velocity.addScaledVector(this._normal, -vb);
                 }
             }
         }

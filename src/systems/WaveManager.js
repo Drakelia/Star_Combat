@@ -10,12 +10,19 @@ export class WaveManager {
         this.enemies = enemies;
         this.sounds = sounds;
         this.difficultyMultiplier = difficultyMultiplier;
+        // Nombre de joueurs (coop) : multiplie l'effectif des vagues. Reste à 1
+        // en solo → composition identique à l'origine. Tenu à jour par `update`.
+        this.playerCount = 1;
 
         this.wave = 0;
         this.intermission = 0;
         this.intermissionDuration = 6;
         this.state = 'intermission';
         this.justAdvanced = false;
+
+        // Origine de spawn = centroïde des joueurs vivants (réutilisé, pas
+        // d'allocation par vague).
+        this._origin = new THREE.Vector3();
     }
 
     start() {
@@ -23,13 +30,15 @@ export class WaveManager {
         this.state = 'intermission';
     }
 
-    update(dt, player) {
+    update(dt, players) {
         this.justAdvanced = false;
+        if (players && players.length) this.playerCount = players.length;
 
         if (this.state === 'intermission') {
             this.intermission -= dt;
             if (this.intermission <= 0) {
-                this._spawnNextWave(player);
+                this._computeOrigin(players);
+                this._spawnNextWave();
             }
         } else if (this.state === 'active') {
             if (this.enemies.length === 0) {
@@ -39,13 +48,36 @@ export class WaveManager {
         }
     }
 
-    _spawnNextWave(player) {
+    /**
+     * Centroïde des vaisseaux joueurs vivants → centre autour duquel la vague
+     * apparaît. En solo, c'est exactement la position du vaisseau unique.
+     */
+    _computeOrigin(players) {
+        let n = 0, x = 0, y = 0, z = 0;
+        for (let i = 0; i < players.length; i++) {
+            const ship = players[i].ship;
+            if (!ship.alive) continue;
+            const p = ship.object.position;
+            x += p.x; y += p.y; z += p.z; n++;
+        }
+        if (n === 0) {
+            // Tous à terre (cas rare en intermission) : centroïde de tous.
+            for (let i = 0; i < players.length; i++) {
+                const p = players[i].ship.object.position;
+                x += p.x; y += p.y; z += p.z; n++;
+            }
+        }
+        if (n === 0) { this._origin.set(0, 0, 0); return; }
+        this._origin.set(x / n, y / n, z / n);
+    }
+
+    _spawnNextWave() {
         this.wave += 1;
         const isBossWave = this.wave % 5 === 0;
         if (isBossWave) {
-            this._spawnBossWave(player);
+            this._spawnBossWave();
         } else {
-            this._spawnRegularWave(player);
+            this._spawnRegularWave();
         }
         this.state = 'active';
         this.justAdvanced = true;
@@ -56,7 +88,7 @@ export class WaveManager {
      * Composition d'une vague régulière (sans spawner). Source de vérité
      * unique utilisée par `_spawnRegularWave` ET `previewWaves`.
      */
-    _composeRegularWave(w, mul = this.difficultyMultiplier) {
+    _composeRegularWave(w, mul = this.difficultyMultiplier * this.playerCount) {
         // Fighters majoritaires, snipers à partir de la vague 3, tanks à partir
         // de la vague 5.
         const fighters = Math.max(1, Math.round((4 + w * 1.6) * mul));
@@ -68,7 +100,7 @@ export class WaveManager {
     /**
      * Composition d'une vague de boss. Pure (pas de spawn).
      */
-    _composeBossWave(w, mul = this.difficultyMultiplier) {
+    _composeBossWave(w, mul = this.difficultyMultiplier * this.playerCount) {
         const bossCount = Math.max(1, Math.floor(w / 5));
         const supportPerBoss = Math.min(20, 4 + Math.floor(w / 5) * 2);
         const supportTotal = bossCount * supportPerBoss;
@@ -102,7 +134,7 @@ export class WaveManager {
         return out;
     }
 
-    _spawnRegularWave(player) {
+    _spawnRegularWave() {
         const w = this.wave;
         const { fighters, snipers, tanks } = this._composeRegularWave(w);
         const total = fighters + snipers + tanks;
@@ -113,17 +145,17 @@ export class WaveManager {
 
         let i = 0;
         for (let k = 0; k < fighters; k++, i++) {
-            this._spawnAt(player, i, total, (pos) => new Fighter({ position: pos, hp: baseHp }));
+            this._spawnAt(i, total, (pos) => new Fighter({ position: pos, hp: baseHp }));
         }
         for (let k = 0; k < snipers; k++, i++) {
-            this._spawnAt(player, i, total, (pos) => new SniperEnemy({ position: pos, hp: sniperHp }), { radiusMul: 1.6 });
+            this._spawnAt(i, total, (pos) => new SniperEnemy({ position: pos, hp: sniperHp }), { radiusMul: 1.6 });
         }
         for (let k = 0; k < tanks; k++, i++) {
-            this._spawnAt(player, i, total, (pos) => new TankEnemy({ position: pos, hp: tankHp }));
+            this._spawnAt(i, total, (pos) => new TankEnemy({ position: pos, hp: tankHp }));
         }
     }
 
-    _spawnBossWave(player) {
+    _spawnBossWave() {
         const w = this.wave;
         const composition = this._composeBossWave(w);
         const bossCount = composition.bossCount;
@@ -132,7 +164,7 @@ export class WaveManager {
         for (let b = 0; b < bossCount; b++) {
             const angle = (b / bossCount) * Math.PI * 2 + Math.random() * 0.4;
             const r = 280 + Math.random() * 80;
-            const origin = player.object.position;
+            const origin = this._origin;
             const pos = new THREE.Vector3(
                 origin.x + Math.cos(angle) * r,
                 origin.y + (Math.random() - 0.5) * 40,
@@ -155,20 +187,20 @@ export class WaveManager {
 
         let i = 0;
         for (let k = 0; k < fighters; k++, i++) {
-            this._spawnAt(player, i, supportTotal, (pos) => new Fighter({ position: pos, hp: baseHp }));
+            this._spawnAt(i, supportTotal, (pos) => new Fighter({ position: pos, hp: baseHp }));
         }
         for (let k = 0; k < snipers; k++, i++) {
-            this._spawnAt(player, i, supportTotal, (pos) => new SniperEnemy({ position: pos, hp: sniperHp }), { radiusMul: 1.5 });
+            this._spawnAt(i, supportTotal, (pos) => new SniperEnemy({ position: pos, hp: sniperHp }), { radiusMul: 1.5 });
         }
         for (let k = 0; k < tanks; k++, i++) {
-            this._spawnAt(player, i, supportTotal, (pos) => new TankEnemy({ position: pos, hp: tankHp }));
+            this._spawnAt(i, supportTotal, (pos) => new TankEnemy({ position: pos, hp: tankHp }));
         }
     }
 
-    _spawnAt(player, i, total, factory, { radiusMul = 1.0 } = {}) {
+    _spawnAt(i, total, factory, { radiusMul = 1.0 } = {}) {
         const angle = (i / Math.max(1, total)) * Math.PI * 2 + Math.random() * 0.4;
         const r = (160 + Math.random() * 120) * radiusMul;
-        const origin = player.object.position;
+        const origin = this._origin;
         const pos = new THREE.Vector3(
             origin.x + Math.cos(angle) * r,
             origin.y + (Math.random() - 0.5) * 60,

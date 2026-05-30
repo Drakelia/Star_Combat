@@ -24,9 +24,17 @@ import { PauseManager } from './systems/PauseManager.js';
 import { TargetLock, enemyLabel } from './systems/TargetLock.js';
 import { EnemyMarkers } from './hud/EnemyMarkers.js';
 import { TargetView } from './hud/TargetView.js';
+import { mulberry32, randomSeed } from './util/Rng.js';
+import { CoopSystem } from './systems/CoopSystem.js';
+
+// Délai de réapparition en coop : un joueur abattu réapparaît près d'un
+// coéquipier vivant après ce délai (cf. `_updatePlayersLifecycle`).
+const RESPAWN_SECONDS = 30;
+// Durée du bouclier d'invincibilité offert à la réapparition.
+const RESPAWN_SHIELD_SECONDS = 5;
 
 export class Game {
-    constructor(canvas) {
+    constructor(canvas, { seed = null } = {}) {
         this.canvas = canvas;
         this.sceneManager = new SceneManager(canvas);
         this.input = new InputManager();
@@ -34,6 +42,12 @@ export class Game {
         this.music = new MusicManager();
         this.clock = new THREE.Clock();
         this.running = false;
+
+        // Mode de jeu : 'solo' | 'host' | 'client'. En solo, `players` se réduit
+        // à un unique joueur local et le comportement est strictement identique
+        // au mono-joueur d'origine. Les chemins spécifiques au multi sont gardés
+        // derrière `this.mode !== 'solo'`.
+        this.mode = 'solo';
 
         this.reticle = document.getElementById('reticle');
         this.mouse = new MouseAim(canvas, {
@@ -105,7 +119,17 @@ export class Game {
         this._tmpRight = new THREE.Vector3();
         this._tmpUp = new THREE.Vector3();
 
+        // Graine du monde : pilote toute la génération procédurale des champs
+        // d'astéroïdes via un PRNG déterministe. En solo (seed === null) elle est
+        // aléatoire → monde différent à chaque lancement, comme avant. En coop,
+        // l'hôte impose sa graine pour que tous les clients génèrent le même monde.
+        this._worldSeed = seed ?? randomSeed();
+
         this._buildWorld();
+
+        // Orchestrateur coop (réseau + lobby). Inerte tant que `connect()` n'est
+        // pas appelé : en solo il n'ouvre aucune connexion.
+        this.coop = new CoopSystem(this);
 
         window.addEventListener('resize', () => this.sceneManager.onResize());
     }
@@ -119,75 +143,10 @@ export class Game {
         fillLight.position.set(-600, -400, 1000);
         scene.add(fillLight);
 
-        this.asteroidFields = [];
-        const fieldCount = 40;
-        const worldSpread = 2800;
-        for (let i = 0; i < fieldCount; i++) {
-            const u = Math.random();
-            const v = Math.random();
-            const theta = u * Math.PI * 2;
-            const phi = Math.acos(2 * v - 1);
-            const dist = 300 + Math.random() * worldSpread;
-            const center = new THREE.Vector3(
-                Math.sin(phi) * Math.cos(theta) * dist,
-                Math.cos(phi) * dist,
-                Math.sin(phi) * Math.sin(theta) * dist
-            );
-            const shape = ASTEROID_FIELD_SHAPES[Math.floor(Math.random() * ASTEROID_FIELD_SHAPES.length)];
-            const inner = 80 + Math.random() * 80;
-            const outer = inner + 140 + Math.random() * 160;
-            const heightByShape = {
-                ring: 250 + Math.random() * 200,
-                disc: 60 + Math.random() * 60,
-                sphere: 0,
-                cluster: 0,
-                stream: 0,
-            };
-            const field = new AsteroidField({
-                count: 70 + Math.floor(Math.random() * 40),
-                center,
-                innerRadius: inner,
-                outerRadius: outer,
-                height: heightByShape[shape],
-                bigChance: 0.08,
-                shape,
-                strayChance: 0.06,
-                strayDistance: 2 + Math.random() * 1.5,
-            });
-            const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(
-                (Math.random() - 0.5) * Math.PI,
-                Math.random() * Math.PI * 2,
-                (Math.random() - 0.5) * Math.PI
-            ));
-            for (const a of field.asteroids) {
-                a.position.sub(center).applyQuaternion(tilt).add(center);
-            }
-            field.refreshAllMatrices();
-            scene.add(field.group);
-            this.asteroidFields.push(field);
-        }
-        this.asteroids = this.asteroidFields[0];
-
-        // Cache the flat asteroid list once — it never changes after world build.
-        this._allAsteroids = [];
-        for (const f of this.asteroidFields) {
-            for (const a of f.asteroids) this._allAsteroids.push(a);
-        }
-        // Obstacle grid : initialement peuplée avec les champs créés ci-dessus,
-        // puis maintenue par le streamer au fur et à mesure que les champs sont
-        // recyclés. Reste "quasi-statique" du point de vue par-frame : aucun
-        // corps mobile n'y est inséré, et les ajouts/retraits arrivent au pire
-        // toutes les `checkInterval` secondes.
-        this._obstacleGrid = new SpatialGrid(120);
-        this._obstacleGrid.addBodies(this._allAsteroids);
-
-        this.streamer = new AsteroidStreamer({
-            scene,
-            obstacleGrid: this._obstacleGrid,
-            collisions: this.collisions,
-            allAsteroids: this._allAsteroids,
-            fields: this.asteroidFields,
-        });
+        // Génère champs d'astéroïdes + grille + streamer à partir de la graine.
+        // Extrait pour pouvoir être rejoué à la volée (`regenerateWorld`) quand
+        // un client coop adopte la graine de l'hôte.
+        this._buildAsteroidWorld(mulberry32(this._worldSeed));
 
         this.starfield = new Starfield({ count: 4000, radius: 5000 });
         scene.add(this.starfield.points);
@@ -207,10 +166,127 @@ export class Game {
 
         this.waveManager = new WaveManager(this.sceneManager.scene, this.enemies, { sounds: this.sounds });
 
-        for (const f of this.asteroidFields) this.collisions.addBodies(f.asteroids);
-
         // entities kept for potential future use; main loop drives ship/asteroids explicitly.
         this.entities.push(this.ship);
+
+        // Roster de joueurs. En solo il n'y a que le joueur local ; `this.ship`
+        // reste un alias vers son vaisseau (caméra, HUD, contrôles, lock-on sont
+        // intrinsèquement locaux et continuent d'utiliser `this.ship`). Les
+        // systèmes « globaux » (IA, dégâts ennemis, collisions, vagues, respawn)
+        // itèrent `this.players`.
+        this.localPlayer = {
+            id: 'local',
+            ship: this.ship,
+            isLocal: true,
+            controller: this.shipController,
+            color: 0x3ddc97,
+            respawnTimer: 0,
+            downed: false,
+            stats: this.stats,
+        };
+        this.players = [this.localPlayer];
+    }
+
+    /**
+     * Construit (ou reconstruit) la couche astéroïdes : champs, liste plate,
+     * grille d'obstacles et streamer, le tout piloté par le PRNG `rng`. Même
+     * `rng` (donc même graine) ⇒ monde identique — base du monde partagé coop.
+     */
+    _buildAsteroidWorld(rng) {
+        const scene = this.sceneManager.scene;
+
+        this.asteroidFields = [];
+        const fieldCount = 40;
+        const worldSpread = 2800;
+        for (let i = 0; i < fieldCount; i++) {
+            const u = rng();
+            const v = rng();
+            const theta = u * Math.PI * 2;
+            const phi = Math.acos(2 * v - 1);
+            const dist = 300 + rng() * worldSpread;
+            const center = new THREE.Vector3(
+                Math.sin(phi) * Math.cos(theta) * dist,
+                Math.cos(phi) * dist,
+                Math.sin(phi) * Math.sin(theta) * dist
+            );
+            const shape = ASTEROID_FIELD_SHAPES[Math.floor(rng() * ASTEROID_FIELD_SHAPES.length)];
+            const inner = 80 + rng() * 80;
+            const outer = inner + 140 + rng() * 160;
+            const heightByShape = {
+                ring: 250 + rng() * 200,
+                disc: 60 + rng() * 60,
+                sphere: 0,
+                cluster: 0,
+                stream: 0,
+            };
+            const field = new AsteroidField({
+                count: 70 + Math.floor(rng() * 40),
+                center,
+                innerRadius: inner,
+                outerRadius: outer,
+                height: heightByShape[shape],
+                bigChance: 0.08,
+                shape,
+                strayChance: 0.06,
+                strayDistance: 2 + rng() * 1.5,
+                rng,
+            });
+            const tilt = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+                (rng() - 0.5) * Math.PI,
+                rng() * Math.PI * 2,
+                (rng() - 0.5) * Math.PI
+            ));
+            for (const a of field.asteroids) {
+                a.position.sub(center).applyQuaternion(tilt).add(center);
+            }
+            field.refreshAllMatrices();
+            scene.add(field.group);
+            this.asteroidFields.push(field);
+        }
+        this.asteroids = this.asteroidFields[0];
+
+        // Liste plate des astéroïdes, mise en cache une fois (maintenue ensuite
+        // par le streamer). Aucun corps mobile n'y est inséré.
+        this._allAsteroids = [];
+        for (const f of this.asteroidFields) {
+            for (const a of f.asteroids) this._allAsteroids.push(a);
+        }
+        this._obstacleGrid = new SpatialGrid(120);
+        this._obstacleGrid.addBodies(this._allAsteroids);
+
+        this.streamer = new AsteroidStreamer({
+            scene,
+            obstacleGrid: this._obstacleGrid,
+            collisions: this.collisions,
+            allAsteroids: this._allAsteroids,
+            fields: this.asteroidFields,
+        });
+
+        for (const f of this.asteroidFields) this.collisions.addBodies(f.asteroids);
+    }
+
+    /** Détruit la couche astéroïdes courante (avant régénération). */
+    _teardownAsteroidWorld() {
+        const scene = this.sceneManager.scene;
+        for (const field of this.asteroidFields) {
+            scene.remove(field.group);
+            for (const inst of field._instances) inst.dispose();
+            field._material.dispose();
+        }
+        this.collisions.clear();
+        this.asteroidFields.length = 0;
+        this._allAsteroids.length = 0;
+    }
+
+    /**
+     * Régénère tout le monde astéroïdes pour une nouvelle graine. Utilisé en
+     * coop : l'hôte diffuse sa graine, chaque client reconstruit un monde
+     * identique. À n'appeler qu'hors de la boucle de simulation chaude.
+     */
+    regenerateWorld(seed) {
+        this._worldSeed = seed >>> 0;
+        this._teardownAsteroidWorld();
+        this._buildAsteroidWorld(mulberry32(this._worldSeed));
     }
 
     start() {
@@ -229,13 +305,18 @@ export class Game {
 
         if (this.gameOver) {
             this.effects.update(dt);
-            this.combat.update(dt, { player: this.ship, enemies: this.enemies, obstacles: [] });
+            this.combat.update(dt, { players: this.players, enemies: this.enemies, obstacles: [] });
+            // En hôte, continue de diffuser pour que les clients apprennent la défaite.
+            if (this.mode === 'host') this.coop.hostBroadcast(dt);
             this.sceneManager.render();
             requestAnimationFrame(this._loop);
             return;
         }
 
-        if (this.pause.paused) {
+        // En multi, la pause est non-bloquante (`blocking=false`) : l'overlay
+        // s'affiche mais la simulation continue de tourner pour les autres
+        // joueurs. En solo, `blocking=true` → on fige réellement la sim.
+        if (this.pause.paused && this.pause.blocking) {
             this.sceneManager.render();
             requestAnimationFrame(this._loop);
             return;
@@ -250,14 +331,24 @@ export class Game {
             return;
         }
 
+        // Client coop : pas de sim lourde (IA/vagues/combat). Vaisseau local
+        // simulé localement, le reste vient des snapshots de l'hôte.
+        if (this.mode === 'client') {
+            this._loopClient(dt);
+            requestAnimationFrame(this._loop);
+            return;
+        }
+
         this.stats.runTimeSec += dt;
 
-        this.shipController.update(dt);
+        if (this.ship.alive) this.shipController.update(dt);
         this.ship.update(dt);
+        // Hôte : applique les inputs des vaisseaux distants + tire leurs canons.
+        if (this.mode === 'host') this.coop.hostUpdateRemotes(dt);
         this.chaseCamera.setBoosting(this.ship.boosting);
         for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
 
-        this.enemyAI.updateAll(this.enemies, this.ship, dt, this.combat, this.missiles, this._obstacleGrid);
+        this.enemyAI.updateAll(this.enemies, this.players, dt, this.combat, this.missiles, this._obstacleGrid);
         for (const enemy of this.enemies) {
             if (enemy.alive) enemy.updateTrail();
         }
@@ -266,7 +357,7 @@ export class Game {
         const obstacleGrid = this._obstacleGrid;
         const hpBefore = this.ship.hp;
         this.combat.update(dt, {
-            player: this.ship,
+            players: this.players,
             enemies: this.enemies,
             obstacles,
             obstacleGrid,
@@ -284,6 +375,7 @@ export class Game {
         const justReleased = this._wasLockHeld && !isLockHeld;
         this.missiles.update(dt, {
             player: this.ship,
+            players: this.players,
             enemies: this.enemies,
             obstacles,
             obstacleGrid,
@@ -323,7 +415,7 @@ export class Game {
             }
         }
 
-        this.powerups.update(dt, this.ship, (type) => this._applyPowerup(type));
+        this.powerups.update(dt, this.players, (type, p, collector) => this._applyPowerupTo(collector, type));
 
         this.collisions.resolveBody(this.ship, 1.5, 0.3);
         for (let i = 0; i < this.enemies.length; i++) {
@@ -333,15 +425,15 @@ export class Game {
             // d'élargir la requête autant.
             this.collisions.resolveBody(e, e.radius, 0.2, 50);
         }
+        // Collisions vaisseau-vaisseau (coop). No-op en solo (1 seul joueur).
+        if (this.players.length > 1) this.collisions.resolvePlayers(this.players);
         this.effects.update(dt);
         this.streamer.update(dt, this.ship.object.position);
-        this.waveManager.update(dt, this.ship);
+        this.waveManager.update(dt, this.players);
         if (this.waveManager.justAdvanced) this._flashWaveBanner();
         this.chaseCamera.update(dt);
 
-        if (!this.ship.alive && !this.gameOver) {
-            this._showDefeat();
-        }
+        this._updatePlayersLifecycle(dt);
 
         if (!this.gameOver) {
             this.sounds.setEngineThrust(this.ship.thrust);
@@ -385,9 +477,68 @@ export class Game {
             );
         }
 
+        // Hôte : diffuse l'état autoritatif (throttlé à ~20 Hz dans CoopSystem).
+        if (this.mode === 'host') this.coop.hostBroadcast(dt);
+
         this.sceneManager.render();
         requestAnimationFrame(this._loop);
     };
+
+    /**
+     * Boucle client coop : le client possède son vaisseau (contrôle + collisions
+     * astéroïdes locales) et envoie sa transform ; tout le reste (ennemis, autres
+     * vaisseaux, vagues, dégâts) provient des snapshots de l'hôte via CoopSystem.
+     * Pas d'IA, de combat, de missiles, de powerups ni de lifecycle ici.
+     */
+    _loopClient(dt) {
+        this.stats.runTimeSec += dt;
+
+        if (this.ship.alive) this.shipController.update(dt);
+        this.ship.update(dt);
+        this.chaseCamera.setBoosting(this.ship.boosting);
+        for (const f of this.asteroidFields) f.update(dt, this.ship.object.position);
+
+        // Interpolation des miroirs (ennemis + vaisseaux distants) + envoi input.
+        // Fait AVANT le combat pour que les miroirs soient à leur position du
+        // frame quand on teste les touches contre eux.
+        this.coop.clientFrame(dt);
+
+        // Tir local réel : le client simule SON canon (ShipController a déjà tiré
+        // via ship.tryFire). La hit-detection vise les miroirs ; le dégât est
+        // arbitré par l'hôte (combat.authoritative=false → event HIT).
+        this.combat.update(dt, {
+            players: this.players,
+            enemies: this.enemies,
+            obstacleGrid: this._obstacleGrid,
+        });
+
+        // Collision du vaisseau local contre les astéroïdes (le client simule le sien).
+        this.collisions.resolveBody(this.ship, 1.5, 0.3);
+
+        this.effects.update(dt);
+        this.chaseCamera.update(dt);
+        if (!this.gameOver) this.sounds.setEngineThrust(this.ship.thrust);
+
+        const cam = this.sceneManager.camera;
+        const mx = this.mouse.x;
+        const my = -this.mouse.y;
+        if (this.input.consume('KeyT')) this.targetLock.lockNearestToCursor(this.enemies, cam, mx, my);
+        if (this.input.consume('KeyY')) this.targetLock.cycleByShipDistance(this.enemies, this.ship);
+        this.targetLock.update(this.enemies, this.ship, cam, mx, my);
+
+        this._updateHud();
+        this._updateLockHUD();
+        this._updateLeadIndicators();
+        this._updateVelocityVector();
+        if (this.enemyMarkers) {
+            this.enemyMarkers.update(this.enemies, this.targetLock?.target, cam, window.innerWidth, window.innerHeight);
+        }
+        if (this.targetView) {
+            this.targetView.update(this.targetLock?.target, cam, this.ship.object.position, dt);
+        }
+
+        this.sceneManager.render();
+    }
 
     _updateHud() {
         this.hud.update({
@@ -756,9 +907,14 @@ export class Game {
         }
     }
 
-    _applyPowerup(type) {
-        this.stats.powerupsCollected += 1;
-        const ship = this.ship;
+    /**
+     * Applique un powerup au vaisseau d'un joueur donné (autorité hôte). En solo
+     * `player` est toujours le joueur local. En coop, si un joueur distant le
+     * ramasse, le buff s'applique à son vaisseau côté hôte et un event `pick` est
+     * envoyé à son client pour le retour visuel (bannière + bouclier).
+     */
+    _applyPowerupTo(player, type) {
+        const ship = player.ship;
         if (type === 'repair') {
             ship.hp = Math.min(ship.maxHp, ship.hp + 40);
         } else if (type === 'shield') {
@@ -770,6 +926,26 @@ export class Game {
         } else if (type === 'frenzy') {
             this.missiles.fireFrenzy(ship, this.enemies);
         }
+        if (player.stats) player.stats.powerupsCollected += 1;
+        if (player === this.localPlayer) {
+            this._flashPowerupBanner(type);
+        } else if (this.mode === 'host' && player.netId != null) {
+            this.coop.notifyPickup(player.netId, type);
+        }
+    }
+
+    /**
+     * Retour visuel d'un powerup ramassé côté client (le buff « gameplay » est
+     * appliqué par l'hôte sur le vaisseau distant). Frenzy : seul l'hôte tire la
+     * salve, ici on se contente de la bannière.
+     */
+    applyLocalBuff(type) {
+        const ship = this.ship;
+        if (type === 'repair') ship.hp = Math.min(ship.maxHp, ship.hp + 40);
+        else if (type === 'shield') ship.shieldTime = Math.max(ship.shieldTime, 18);
+        else if (type === 'rapid') ship.rapidTime = Math.max(ship.rapidTime, 12);
+        else if (type === 'overcharge') ship.overchargeTime = Math.max(ship.overchargeTime, 12);
+        this.stats.powerupsCollected += 1;
         this._flashPowerupBanner(type);
     }
 
@@ -783,6 +959,87 @@ export class Game {
         banner.classList.remove('show');
         void banner.offsetWidth;
         banner.classList.add('show');
+    }
+
+    /**
+     * Cycle de vie des joueurs (mort / abattu / réapparition / défaite).
+     *
+     * Solo : aucun respawn — la mort du joueur unique déclenche la défaite,
+     * exactement comme avant.
+     *
+     * Coop : un joueur abattu passe en état *downed* tant qu'au moins un
+     * coéquipier est vivant ; après `RESPAWN_SECONDS` il réapparaît près d'un
+     * vivant avec un bouclier d'invincibilité. La défaite n'est déclenchée que
+     * lorsque **tous** les joueurs sont à terre simultanément.
+     */
+    _updatePlayersLifecycle(dt) {
+        if (this.mode === 'solo') {
+            if (!this.ship.alive && !this.gameOver) this._showDefeat();
+            return;
+        }
+
+        let anyAlive = false;
+        for (let i = 0; i < this.players.length; i++) {
+            if (this.players[i].ship.alive) { anyAlive = true; break; }
+        }
+
+        for (let i = 0; i < this.players.length; i++) {
+            const p = this.players[i];
+            if (p.ship.alive) {
+                p.downed = false;
+                p.respawnTimer = 0;
+                continue;
+            }
+            // Mort : si tous sont à terre, on laisse la défaite gérer ci-dessous.
+            if (!anyAlive) continue;
+            if (!p.downed) {
+                p.downed = true;
+                p.respawnTimer = RESPAWN_SECONDS;
+            } else {
+                p.respawnTimer -= dt;
+                if (p.respawnTimer <= 0) this._respawnPlayer(p);
+            }
+        }
+
+        if (!anyAlive && !this.gameOver) this._showDefeat();
+    }
+
+    /**
+     * Réapparition coop : remet le vaisseau en état de combat près d'un
+     * coéquipier vivant et lui accorde un bouclier d'invincibilité temporaire
+     * (réutilise `shieldTime`, déjà géré par `Ship.takeDamage`).
+     */
+    _respawnPlayer(p) {
+        let anchor = null;
+        for (let i = 0; i < this.players.length; i++) {
+            const q = this.players[i];
+            if (q !== p && q.ship.alive) { anchor = q; break; }
+        }
+
+        const ship = p.ship;
+        ship.hp = ship.maxHp;
+        ship.alive = true;
+        ship.velocity.set(0, 0, 0);
+        ship.thrust = 0;
+        ship.shield.reset();
+        ship.shieldTime = RESPAWN_SHIELD_SECONDS;
+        ship.rapidTime = 0;
+        ship.overchargeTime = 0;
+        ship._lastShieldHitTime = -Infinity;
+        ship.fireCooldown = 0;
+        if (anchor) {
+            const ap = anchor.ship.object.position;
+            ship.object.position.set(
+                ap.x + (Math.random() - 0.5) * 30,
+                ap.y + (Math.random() - 0.5) * 20,
+                ap.z + (Math.random() - 0.5) * 30,
+            );
+        }
+        ship.object.quaternion.identity();
+        ship.resetTrail?.();
+
+        p.downed = false;
+        p.respawnTimer = 0;
     }
 
     _showDefeat() {
@@ -808,6 +1065,11 @@ export class Game {
     }
 
     returnToMenu() {
+        // Quitte proprement une éventuelle session coop et repasse en solo
+        // (pause de nouveau bloquante).
+        this.coop?.leave();
+        this.mode = 'solo';
+        this.pause.blocking = true;
         this.pause.resume();
         this._resetWorld();
         this.running = false;
@@ -873,6 +1135,11 @@ export class Game {
         this.ship.object.position.set(200, 40, 200);
         this.ship.object.quaternion.identity();
         this.ship.resetTrail();
+
+        for (let i = 0; i < this.players.length; i++) {
+            this.players[i].downed = false;
+            this.players[i].respawnTimer = 0;
+        }
 
         this.shipController.boost.reset();
 

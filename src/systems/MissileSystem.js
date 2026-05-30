@@ -35,6 +35,14 @@ export class MissileSystem {
         this.wasLocking = false;
         this.playerMissilesFired = 0;
 
+        // Arbitrage coop (parallèle à CombatSystem) — « le tireur simule, l'hôte
+        // arbitre ». solo/hôte : authoritative=true → dégât direct. Client :
+        // authoritative=false → onPlayerHit(enemyNetId, dmg, true). onSpawn diffuse
+        // chaque missile (joueur ou ennemi) en visuel aux autres machines.
+        this.authoritative = true;
+        this.onPlayerHit = null;
+        this.onSpawn = null;
+
         this._forward = new THREE.Vector3();
         this._toEnemy = new THREE.Vector3();
         this._segAB = new THREE.Vector3();
@@ -119,7 +127,7 @@ export class MissileSystem {
         ring.rotation.z += dt * (acquired ? (3 - tierIdx) : 1) * (tierIdx % 2 === 0 ? 1 : -1);
     }
 
-    update(dt, { player, enemies, obstacles, obstacleGrid, camera, isLockHeld, justReleased }) {
+    update(dt, { player, players, enemies, obstacles, obstacleGrid, camera, isLockHeld, justReleased }) {
         if (this.cooldown > 0) this.cooldown -= dt;
 
         if (justReleased && this.cooldown <= 0) {
@@ -134,20 +142,23 @@ export class MissileSystem {
 
             if (m.alive) {
                 if (m.owner === 'enemy') {
-                    if (player.alive) {
-                        const r = 1.6 + m.radius;
-                        const distSq = this._segmentDistSq(m.prevPosition, m.position, player.object.position);
+                    const r = 1.6 + m.radius;
+                    for (let pi = 0; pi < players.length; pi++) {
+                        const ship = players[pi].ship;
+                        if (!ship.alive) continue;
+                        const distSq = this._segmentDistSq(m.prevPosition, m.position, ship.object.position);
                         if (distSq < r * r) {
-                            const wasAlive = player.alive;
-                            player.takeDamage(m.damage, 'missile');
+                            const wasAlive = ship.alive;
+                            ship.takeDamage(m.damage, 'missile');
                             this._detonate(m);
-                            if (!player.alive && wasAlive) {
-                                this.effects?.spawn(player.object.position, { count: 320, scale: 1.9, speed: 55, lifetime: 1.8 });
+                            if (!ship.alive && wasAlive) {
+                                this.effects?.spawn(ship.object.position, { count: 320, scale: 1.9, speed: 55, lifetime: 1.8 });
                                 this.sounds?.shipDestroyed({ volume: 1.15 });
                             } else {
                                 this.effects?.spawn(m.position, { count: 60, scale: 1.0, speed: 28, lifetime: 0.9 });
                                 this.sounds?.explosion({ volume: 0.5 });
                             }
+                            break;
                         }
                     }
                 } else {

@@ -15,6 +15,7 @@ export class AsteroidField {
         strayChance = 0.06,
         strayDistance = 2.5,
         axis = null,
+        rng = Math.random,
     } = {}) {
         this.group = new THREE.Group();
         this.asteroids = [];
@@ -22,9 +23,9 @@ export class AsteroidField {
         this.center = center.clone();
 
         const streamAxis = axis || new THREE.Vector3(
-            Math.random() - 0.5,
-            Math.random() - 0.5,
-            Math.random() - 0.5
+            rng() - 0.5,
+            rng() - 0.5,
+            rng() - 0.5
         ).normalize();
         const perp1 = new THREE.Vector3();
         const perp2 = new THREE.Vector3();
@@ -37,13 +38,13 @@ export class AsteroidField {
         }
 
         for (let i = 0; i < count; i++) {
-            const isStray = Math.random() < strayChance;
-            const pos = this._samplePosition(shape, center, innerRadius, outerRadius, height, isStray ? strayDistance : 1, streamAxis, perp1, perp2);
+            const isStray = rng() < strayChance;
+            const pos = this._samplePosition(shape, center, innerRadius, outerRadius, height, isStray ? strayDistance : 1, streamAxis, perp1, perp2, rng);
 
-            const isBig = Math.random() < bigChance;
-            const baseRadius = 2 + Math.random() * 6;
-            const radius = isBig ? baseRadius * (3 + Math.random() * 2) : baseRadius;
-            const a = new Asteroid({ radius, position: pos, seed: Math.random() });
+            const isBig = rng() < bigChance;
+            const baseRadius = 2 + rng() * 6;
+            const radius = isBig ? baseRadius * (3 + rng() * 2) : baseRadius;
+            const a = new Asteroid({ radius, position: pos, seed: rng(), rng });
             this.asteroids.push(a);
         }
 
@@ -76,24 +77,24 @@ export class AsteroidField {
         this._tmpVec = new THREE.Vector3();
     }
 
-    _samplePosition(shape, center, inner, outer, height, scale, axis, perp1, perp2) {
+    _samplePosition(shape, center, inner, outer, height, scale, axis, perp1, perp2, rng = Math.random) {
         const out = new THREE.Vector3();
 
         if (shape === 'sphere') {
-            const u = Math.random();
-            const v = Math.random();
+            const u = rng();
+            const v = rng();
             const theta = u * Math.PI * 2;
             const phi = Math.acos(2 * v - 1);
-            const r = (inner + Math.random() * (outer - inner)) * scale;
+            const r = (inner + rng() * (outer - inner)) * scale;
             out.set(
                 Math.sin(phi) * Math.cos(theta) * r,
                 Math.cos(phi) * r,
                 Math.sin(phi) * Math.sin(theta) * r
             );
         } else if (shape === 'cluster') {
-            const r = Math.pow(Math.random(), 1.6) * outer * scale;
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
+            const r = Math.pow(rng(), 1.6) * outer * scale;
+            const theta = rng() * Math.PI * 2;
+            const phi = Math.acos(2 * rng() - 1);
             out.set(
                 Math.sin(phi) * Math.cos(theta) * r,
                 Math.cos(phi) * r,
@@ -101,21 +102,21 @@ export class AsteroidField {
             );
         } else if (shape === 'stream') {
             const length = outer * 2.5;
-            const t = (Math.random() - 0.5) * length * scale;
-            const radial = (inner * 0.3 + Math.random() * inner * 0.7) * (scale > 1 ? scale : 1);
-            const a = Math.random() * Math.PI * 2;
+            const t = (rng() - 0.5) * length * scale;
+            const radial = (inner * 0.3 + rng() * inner * 0.7) * (scale > 1 ? scale : 1);
+            const a = rng() * Math.PI * 2;
             out.copy(axis).multiplyScalar(t)
                 .addScaledVector(perp1, Math.cos(a) * radial)
                 .addScaledVector(perp2, Math.sin(a) * radial);
         } else if (shape === 'disc') {
-            const angle = Math.random() * Math.PI * 2;
-            const r = (inner + Math.random() * (outer - inner)) * scale;
-            const y = (Math.random() - 0.5) * height * 0.25;
+            const angle = rng() * Math.PI * 2;
+            const r = (inner + rng() * (outer - inner)) * scale;
+            const y = (rng() - 0.5) * height * 0.25;
             out.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
         } else {
-            const angle = Math.random() * Math.PI * 2;
-            const r = (inner + Math.random() * (outer - inner)) * scale;
-            const y = (Math.random() - 0.5) * height;
+            const angle = rng() * Math.PI * 2;
+            const r = (inner + rng() * (outer - inner)) * scale;
+            const y = (rng() - 0.5) * height;
             out.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
         }
 

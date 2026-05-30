@@ -10,6 +10,16 @@ export class CombatSystem {
         this._diff = new THREE.Vector3();
         this.playerShotsFired = 0;
         this.playerShotsHit = 0;
+        // Hook optionnel (coop hôte) : appelé à chaque tir pour diffuser un
+        // projectile visuel aux clients. Reçoit (projectile, opts).
+        this.onSpawn = null;
+        // Arbitrage des dégâts (coop) — « le tireur simule, l'hôte arbitre ».
+        //  - solo / hôte : authoritative=true → on applique le dégât directement.
+        //  - client       : authoritative=false → on n'altère PAS le hp local
+        //    (réconcilié par snapshot) ; on émet `onPlayerHit(enemyNetId, dmg)`
+        //    pour que l'hôte applique réellement le dégât.
+        this.authoritative = true;
+        this.onPlayerHit = null;
     }
 
     spawnProjectile(opts) {
@@ -17,6 +27,7 @@ export class CombatSystem {
         this.scene.add(p.mesh);
         this.projectiles.push(p);
         if (opts.owner === 'player') this.playerShotsFired++;
+        if (this.onSpawn) this.onSpawn(p, opts);
 
         if (this.sounds) {
             this.sounds.laser({
@@ -26,7 +37,7 @@ export class CombatSystem {
         }
     }
 
-    update(dt, { player, enemies, obstacles, obstacleGrid }) {
+    update(dt, { players, enemies, obstacles, obstacleGrid }) {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.update(dt);
@@ -36,30 +47,45 @@ export class CombatSystem {
                     for (const e of enemies) {
                         if (!e.alive) continue;
                         if (this._hits(p, e.object.position, e.radius)) {
-                            e.takeDamage(p.damage);
                             p.alive = false;
                             this.playerShotsHit++;
-                            if (e.alive) {
+                            if (this.authoritative) {
+                                // Solo / hôte : dégât appliqué directement.
+                                e.takeDamage(p.damage);
+                                if (e.alive) {
+                                    this.effects?.spark(p.position);
+                                    this.sounds?.hit();
+                                } else {
+                                    this.effects?.spawn(e.object.position, { count: 220, scale: 1.5, speed: 48, lifetime: 1.6 });
+                                    this.sounds?.shipDestroyed({ volume: 0.95 });
+                                }
+                            } else {
+                                // Client : on touche un miroir → spark immédiat pour
+                                // le ressenti, puis on délègue le dégât à l'hôte. Le
+                                // hp/mort de l'ennemi est réconcilié par snapshot.
                                 this.effects?.spark(p.position);
                                 this.sounds?.hit();
-                            } else {
-                                this.effects?.spawn(e.object.position, { count: 220, scale: 1.5, speed: 48, lifetime: 1.6 });
-                                this.sounds?.shipDestroyed({ volume: 0.95 });
+                                if (this.onPlayerHit) this.onPlayerHit(e.netId, p.damage);
                             }
                             break;
                         }
                     }
                 } else {
-                    if (this._hits(p, player.object.position, 1.5)) {
-                        const wasAlive = player.alive;
-                        player.takeDamage(p.damage, p.kind);
-                        p.alive = false;
-                        if (player.alive) {
-                            this.effects?.spark(p.position);
-                            this.sounds?.hit({ volume: 0.45 });
-                        } else if (wasAlive) {
-                            this.effects?.spawn(player.object.position, { count: 320, scale: 1.9, speed: 55, lifetime: 1.8 });
-                            this.sounds?.shipDestroyed({ volume: 1.15 });
+                    for (let pi = 0; pi < players.length; pi++) {
+                        const ship = players[pi].ship;
+                        if (!ship.alive) continue;
+                        if (this._hits(p, ship.object.position, 1.5)) {
+                            const wasAlive = ship.alive;
+                            ship.takeDamage(p.damage, p.kind);
+                            p.alive = false;
+                            if (ship.alive) {
+                                this.effects?.spark(p.position);
+                                this.sounds?.hit({ volume: 0.45 });
+                            } else if (wasAlive) {
+                                this.effects?.spawn(ship.object.position, { count: 320, scale: 1.9, speed: 55, lifetime: 1.8 });
+                                this.sounds?.shipDestroyed({ volume: 1.15 });
+                            }
+                            break;
                         }
                     }
                 }

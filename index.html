@@ -117,13 +117,45 @@
                     </div>
                 </div>
 
-                <button id="start-play" type="button">▶ LANCER LA MISSION</button>
+                <div id="start-actions">
+                    <button id="start-solo" type="button">▶ SOLO</button>
+                    <button id="start-multi" type="button">⊕ MULTIJOUEUR</button>
+                </div>
             </section>
         </div>
 
         <div class="hud-chrome bottom">
             <span class="red">● ALL SYSTEMS NOMINAL</span>
             <span>STAR COMBAT v0.4</span>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         LOBBY OVERLAY (coop)
+         ============================================================ -->
+    <div id="lobby-overlay">
+        <div id="lobby-card">
+            <div class="frame-corner tl"></div>
+            <div class="frame-corner tr"></div>
+            <div class="frame-corner bl"></div>
+            <div class="frame-corner br"></div>
+
+            <div class="kicker red">▸ ESCADRON COOP ─ SECTOR-7</div>
+            <h1 id="lobby-title">LOBBY</h1>
+            <div id="lobby-status">Connexion au serveur…</div>
+
+            <div id="lobby-count-row">
+                <span id="lobby-count-num">0</span>
+                <span class="lobby-count-label">PILOTE(S) CONNECTÉ(S)</span>
+            </div>
+            <div id="lobby-players"></div>
+
+            <div id="lobby-wait" class="hidden">▸ EN ATTENTE DE L'HÔTE…</div>
+
+            <div id="lobby-actions">
+                <button id="lobby-ready" type="button" disabled>PRÊT — LANCER</button>
+                <button id="lobby-cancel" type="button">ANNULER</button>
+            </div>
         </div>
     </div>
 

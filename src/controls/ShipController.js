@@ -11,8 +11,12 @@ export class ShipController {
         this.aimDistance = opts.aimDistance ?? 1500;
 
         this._raycaster = new THREE.Raycaster();
-        this._aimPoint = new THREE.Vector3();
         this._ndc = { x: 0, y: 0 };
+        // Point visé sous le curseur, recalculé chaque frame (sert au tir local
+        // ET à la coop : le client le transmet à l'hôte pour que le canon
+        // distant tire vers le curseur du joueur, pas dans l'axe du vaisseau).
+        this.aimPoint = new THREE.Vector3();
+        this.hasAim = false;
 
         this.pitchSpeed = opts.pitchSpeed ?? 1.6;
         this.yawSpeed = opts.yawSpeed ?? 1.4;
@@ -91,17 +95,19 @@ export class ShipController {
         const accelMul = boosting ? this.boostMultiplier : 1;
         const braking = input.isDown('KeyX');
 
+        // Point visé sous le curseur, recalculé chaque frame (indépendamment du
+        // tir) afin d'être disponible pour la transmission coop.
+        if (this.mouse && this.camera) {
+            this._ndc.x = this.mouse.x;
+            this._ndc.y = -this.mouse.y;
+            this._raycaster.setFromCamera(this._ndc, this.camera);
+            this._raycaster.ray.at(this.aimDistance, this.aimPoint);
+            this.hasAim = true;
+        }
+
         const wantsFire = mouse && mouse.firing;
         if (this.combat && wantsFire) {
-            let aimPoint = null;
-            if (this.mouse && this.camera) {
-                this._ndc.x = this.mouse.x;
-                this._ndc.y = -this.mouse.y;
-                this._raycaster.setFromCamera(this._ndc, this.camera);
-                this._raycaster.ray.at(this.aimDistance, this._aimPoint);
-                aimPoint = this._aimPoint;
-            }
-            ship.tryFire(this.combat, aimPoint);
+            ship.tryFire(this.combat, this.hasAim ? this.aimPoint : null);
         }
 
         this._forward.set(0, 0, -1).applyQuaternion(obj.quaternion);
