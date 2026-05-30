@@ -59,6 +59,20 @@ export class MissileSystem {
         return this._segAP.subVectors(p, a).addScaledVector(this._segAB, -t).lengthSq();
     }
 
+    /**
+     * Applique (hôte/solo) ou signale (client) le dégât d'un missile joueur à un
+     * ennemi. Renvoie `true` si l'ennemi est tué (toujours `false` côté client :
+     * la mort est réconciliée par snapshot). Aucune alloc.
+     */
+    _hitEnemy(e, m) {
+        if (this.authoritative) {
+            e.takeDamage(m.damage);
+            return !e.alive;
+        }
+        if (this.onPlayerHit) this.onPlayerHit(e.netId, m.damage, true);
+        return false;
+    }
+
     _detonate(m) {
         const trail = m.detachTrail?.();
         if (trail) {
@@ -161,14 +175,27 @@ export class MissileSystem {
                             break;
                         }
                     }
+                } else if (m.owner === 'visual') {
+                    // Missile visuel diffusé (tir d'un autre joueur ou missile
+                    // ennemi vu côté client) : aucune hit-detection de dégât, juste
+                    // une détonation cosmétique à proximité de la cible.
+                    if (m.target && m.target.alive) {
+                        const tr = (m.target.radius != null ? m.target.radius : 1.6) + m.radius;
+                        const distSq = this._segmentDistSq(m.prevPosition, m.position, m.target.object.position);
+                        if (distSq < tr * tr) {
+                            this._detonate(m);
+                            this.effects?.spawn(m.position, { count: 40, scale: 0.7, speed: 22, lifetime: 0.7 });
+                            this.sounds?.explosion({ volume: 0.3 });
+                        }
+                    }
                 } else {
                     if (m.target && m.target.alive) {
                         const r = m.target.radius + m.radius;
                         const distSq = this._segmentDistSq(m.prevPosition, m.position, m.target.object.position);
                         if (distSq < r * r) {
-                            m.target.takeDamage(m.damage);
+                            const killed = this._hitEnemy(m.target, m);
                             this._detonate(m);
-                            if (!m.target.alive) {
+                            if (killed) {
                                 this.effects?.spawn(m.target.object.position, { count: 240, scale: 1.6, speed: 50, lifetime: 1.6 });
                                 this.sounds?.shipDestroyed({ volume: 1.0 });
                             } else {
@@ -184,9 +211,9 @@ export class MissileSystem {
                             const r = e.radius + m.radius * 0.6;
                             const distSq = this._segmentDistSq(m.prevPosition, m.position, e.object.position);
                             if (distSq < r * r) {
-                                e.takeDamage(m.damage);
+                                const killed = this._hitEnemy(e, m);
                                 this._detonate(m);
-                                if (!e.alive) {
+                                if (killed) {
                                     this.effects?.spawn(e.object.position, { count: 220, scale: 1.5, speed: 48, lifetime: 1.6 });
                                     this.sounds?.shipDestroyed({ volume: 0.95 });
                                 } else {
@@ -360,6 +387,7 @@ export class MissileSystem {
             });
             this.missiles.push(m);
             this.playerMissilesFired++;
+            if (this.onSpawn) this.onSpawn(m, false);
         }
 
         for (const [, lock] of this.locks) lock.progress = 0;
@@ -394,7 +422,40 @@ export class MissileSystem {
             trailOpacity: 0.95,
         });
         this.missiles.push(m);
+        if (this.onSpawn) this.onSpawn(m, true);
         this.sounds?.missileLaunch?.({ volume: 0.6 });
+    }
+
+    /**
+     * Missile purement visuel (coop) : diffusé par une autre machine. Re-simule
+     * le homing localement (vers le miroir cible) mais n'inflige aucun dégât
+     * (owner='visual'). `enemy` choisit l'apparence (missile ennemi orange vs
+     * missile joueur). N'appelle PAS `onSpawn` (sinon re-diffusion en boucle).
+     */
+    spawnVisualMissile({ position, direction, target = null, enemy = false }) {
+        const opts = enemy
+            ? {
+                position, direction, target, owner: 'visual',
+                speed: 35, acceleration: 55, maxSpeed: 120, turnRate: 0.8,
+                lifetime: 11, radius: 3.0, trailLength: 380, homingDelay: 1.8,
+                bodyColor: 0xff7733, bodyEmissive: 0x551100, flameColor: 0xffcc55,
+                bodyScale: 1.7,
+                trailGradient: (t) => [1.0 * t, 0.55 * t * t, 0.1 * t * t * t],
+                trailOpacity: 0.95,
+            }
+            : { position, direction, target, owner: 'visual', homingDelay: 0.5 };
+        const m = new Missile(this.scene, opts);
+        this.missiles.push(m);
+    }
+
+    /** Retire tous les missiles visuels (fin de session coop). */
+    clearVisualMissiles() {
+        for (let i = this.missiles.length - 1; i >= 0; i--) {
+            if (this.missiles[i].owner === 'visual') {
+                this.missiles[i].dispose();
+                this.missiles.splice(i, 1);
+            }
+        }
     }
 
     fireFrenzy(player, enemies) {
@@ -435,6 +496,7 @@ export class MissileSystem {
             });
             this.missiles.push(m);
             this.playerMissilesFired++;
+            if (this.onSpawn) this.onSpawn(m, false);
         }
 
         this.sounds?.missileLaunch?.();

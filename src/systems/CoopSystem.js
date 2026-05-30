@@ -16,19 +16,27 @@ import { Powerup } from '../entities/Powerup.js';
  * Lobby (phase 3) : connexion, roster, élection d'hôte, lancement synchronisé,
  * late-join. UI dans `main.js` via les callbacks `onLobbyUpdate/onStarted/...`.
  *
- * Synchronisation d'état (phase 4) — autorité hôte :
- *  - Chaque client possède SON vaisseau : il envoie sa transform + son flag de
- *    tir à l'hôte (~30 Hz, message INPUT).
- *  - L'hôte simule TOUT (IA, vagues, dégâts, respawn) : les vaisseaux distants
- *    sont des `Player` à part entière dans `game.players` (l'IA les cible, les
- *    projectiles ennemis les touchent, l'hôte tire leurs canons selon le flag).
+ * Synchronisation d'état (phase 4) — autorité hôte sur le monde :
+ *  - Chaque client possède SON vaisseau : il envoie sa transform à l'hôte
+ *    (~30 Hz, message INPUT).
+ *  - L'hôte simule l'IA, les vagues, le respawn et les dégâts ENNEMIS→joueurs ;
+ *    les vaisseaux distants sont des `Player` à part entière dans `game.players`
+ *    (l'IA les cible, les projectiles/missiles ennemis les touchent).
  *  - L'hôte diffuse un SNAPSHOT (~20 Hz) : tous les vaisseaux + tous les ennemis
- *    vivants. Les clients reconstruisent/mettent à jour des entités « miroir »
- *    interpolées et ne lancent NI IA NI vagues NI combat (autorité hôte).
+ *    vivants (position, quaternion, VÉLOCITÉ, hp). Les clients reconstruisent
+ *    des entités « miroir » interpolées + extrapolées (dead-reckoning) et ne
+ *    lancent NI IA NI vagues (autorité hôte).
  *
- * Projectiles/missiles visuels côté client et recyclage de champs déterministe
- * sont volontairement laissés à une passe ultérieure (les dégâts, eux, sont déjà
- * autoritatifs côté hôte).
+ * Tir (phases A/B) — « le tireur simule, l'hôte arbitre les dégâts » :
+ *  - Chaque machine exécute son propre canon/missiles (un seul pipeline, partagé
+ *    solo/hôte/client). solo/hôte appliquent le dégât directement ; le client
+ *    fait la hit-detection contre les miroirs et émet un HIT → l'hôte applique,
+ *    le hp ennemi étant réconcilié par snapshot.
+ *  - Les tirs/missiles des AUTRES joueurs et les missiles ennemis sont des
+ *    visuels diffusés (canaux SHOT/MISSILE + champs `pr`/`mr` du snapshot,
+ *    taggués par `owner` pour que le tireur ne reçoive pas son propre tir).
+ *
+ * Reste à une passe ultérieure : recyclage déterministe des champs d'astéroïdes.
  */
 
 const PLAYER_COLORS = [0x3ddc97, 0x4aa8ff, 0xffc24a, 0xff6ad5, 0x9b7bff, 0x5ce0d8, 0xff8a5c, 0xb6ff5c];
@@ -66,6 +74,10 @@ export class CoopSystem {
         // les joint au snapshot ; le client les rejoue en visuels (sans dégât).
         this._pendingProjectiles = [];  // hôte
         this.visualProjectiles = [];    // client
+        // Missiles (phase B) : mêmes canaux que les projectiles. L'hôte accumule
+        // les spawns (siens + ennemis + relayés des clients) et les joint au
+        // snapshot ; chaque machine re-simule les missiles visuels localement.
+        this._pendingMissiles = [];     // hôte
 
         // Powerups : l'hôte est autoritaire (apparition + ramassage) ; les
         // clients en affichent des miroirs synchronisés via le snapshot.
@@ -103,6 +115,7 @@ export class CoopSystem {
         net.on(MSG.EVENT, (m) => this._onEvent(m));
         net.on(MSG.HIT, (m) => this._onHit(m));
         net.on(MSG.SHOT, (m) => this._onShot(m));
+        net.on(MSG.MISSILE, (m) => this._onMissile(m));
         net.on('close', () => this._onClose());
         net.on('error', (e) => this.onError?.(e));
         await net.connect();
@@ -123,6 +136,11 @@ export class CoopSystem {
             // Restaure l'arbitrage solo (dégât appliqué directement).
             this.game.combat.authoritative = true;
             this.game.combat.onPlayerHit = null;
+        }
+        if (this.game.missiles) {
+            this.game.missiles.onSpawn = null;
+            this.game.missiles.authoritative = true;
+            this.game.missiles.onPlayerHit = null;
         }
         if (this.game.shipController) this.game.shipController.combat = this.game.combat;
         this._clearNetEntities();
@@ -175,6 +193,9 @@ export class CoopSystem {
             this.game.combat.authoritative = true;
             this.game.combat.onPlayerHit = null;
             this.game.combat.onSpawn = (p) => this._onHostProjectile(p);
+            this.game.missiles.authoritative = true;
+            this.game.missiles.onPlayerHit = null;
+            this.game.missiles.onSpawn = (m, enemy) => this._onHostMissile(m, enemy);
         } else {
             // Client : « le tireur simule, l'hôte arbitre ». Il tire RÉELLEMENT
             // en local (hit-detection contre les miroirs), n'altère pas le hp
@@ -183,6 +204,9 @@ export class CoopSystem {
             this.game.combat.authoritative = false;
             this.game.combat.onPlayerHit = (netId, dmg) => this._sendHit(netId, dmg);
             this.game.combat.onSpawn = (p) => this._onClientShot(p);
+            this.game.missiles.authoritative = false;
+            this.game.missiles.onPlayerHit = (netId, dmg, mis) => this._sendHit(netId, dmg, mis);
+            this.game.missiles.onSpawn = (m) => this._onClientMissile(m);
         }
         this.onStarted?.();
     }
@@ -331,12 +355,14 @@ export class CoopSystem {
         this.net.send(MSG.SNAPSHOT, {
             ps, es, pw,
             pr: this._pendingProjectiles,
+            mr: this._pendingMissiles,
             w: this.game.waveManager.wave,
             wst: this.game.waveManager.state,
             wcd: this.game.waveManager.intermission,
             over: this.game.gameOver ? 1 : 0,
         });
         if (this._pendingProjectiles.length) this._pendingProjectiles = [];
+        if (this._pendingMissiles.length) this._pendingMissiles = [];
     }
 
     /** Hook hôte : accumule un tir local pour diffusion (joint au prochain snapshot). */
@@ -365,11 +391,7 @@ export class CoopSystem {
         if (!this.isHost) return;
         const netId = m.e;
         if (netId == null) return;
-        const enemies = this.game.enemies;
-        let target = null;
-        for (let i = 0; i < enemies.length; i++) {
-            if (enemies[i].netId === netId) { target = enemies[i]; break; }
-        }
+        const target = this._enemyByNetId(netId);
         if (!target || !target.alive) return;
         const dmg = m.dmg;
         if (!(dmg > 0) || dmg > MAX_HIT_DAMAGE) return;
@@ -393,9 +415,9 @@ export class CoopSystem {
     }
 
     /** Client : signale un dégât à l'hôte (arbitrage des PV ennemis). */
-    _sendHit(enemyNetId, dmg) {
+    _sendHit(enemyNetId, dmg, missile = false) {
         if (enemyNetId == null) return;
-        this.net?.send(MSG.HIT, { e: enemyNetId, dmg });
+        this.net?.send(MSG.HIT, missile ? { e: enemyNetId, dmg, mis: 1 } : { e: enemyNetId, dmg });
     }
 
     /** Client : diffuse un de ses tirs (projectile visuel) à l'hôte. */
@@ -407,6 +429,88 @@ export class CoopSystem {
             vx: v.x, vy: v.y, vz: v.z,
             life: p.lifetime, col: p.mesh.material.color.getHex(),
         });
+    }
+
+    // ============================================================
+    // Missiles (phase B) — mêmes canaux que les projectiles
+    // ============================================================
+
+    /** Hôte : accumule un missile local (sien ou ennemi) pour diffusion visuelle. */
+    _onHostMissile(m, enemy) {
+        const tgt = this._missileTargetNetId(m.target, enemy);
+        const o = m.mesh.position, v = m.velocity;
+        const sp = Math.hypot(v.x, v.y, v.z) || 1;
+        this._pushPendingMissile(this.id, o.x, o.y, o.z, v.x / sp, v.y / sp, v.z / sp, tgt, enemy ? 1 : 0);
+    }
+
+    /** Client : diffuse un de ses missiles (visuel) à l'hôte. */
+    _onClientMissile(m) {
+        if (!this.net) return;
+        const o = m.mesh.position, v = m.velocity;
+        const sp = Math.hypot(v.x, v.y, v.z) || 1;
+        this.net.send(MSG.MISSILE, {
+            x: o.x, y: o.y, z: o.z,
+            dx: v.x / sp, dy: v.y / sp, dz: v.z / sp,
+            tgt: m.target ? (m.target.netId ?? null) : null,
+        });
+    }
+
+    /** Hôte : un client annonce un missile → visuel local + re-diffusion (snapshot). */
+    _onMissile(msg) {
+        if (!this.isHost) return;
+        this._spawnVisualMissileFromNet(msg, 0);
+        this._pushPendingMissile(msg.from, msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.tgt ?? null, 0);
+    }
+
+    _pushPendingMissile(owner, x, y, z, dx, dy, dz, tgt, en) {
+        if (this._pendingMissiles.length > 256) return; // garde-fou
+        this._pendingMissiles.push({ o: owner, x, y, z, dx, dy, dz, tgt, en });
+    }
+
+    /** Re-simule un missile visuel à partir d'un message réseau (résout la cible). */
+    _spawnVisualMissileFromNet(d, en) {
+        const target = this._resolveMissileTarget(d.tgt, en);
+        this.game.missiles.spawnVisualMissile({
+            position: new THREE.Vector3(d.x, d.y, d.z),
+            direction: new THREE.Vector3(d.dx, d.dy, d.dz),
+            target,
+            enemy: en === 1,
+        });
+    }
+
+    /** netId de la cible d'un missile : ennemi (joueur) ou vaisseau (missile ennemi). */
+    _missileTargetNetId(target, enemy) {
+        if (!target) return null;
+        if (enemy) {
+            const players = this.game.players;
+            for (let i = 0; i < players.length; i++) {
+                if (players[i].ship === target) return players[i].netId ?? players[i].id;
+            }
+            return null;
+        }
+        return target.netId ?? null;
+    }
+
+    /** Résout l'entité cible d'un missile visuel reçu (ennemi miroir/réel ou vaisseau). */
+    _resolveMissileTarget(tgt, en) {
+        if (tgt == null) return null;
+        if (en === 1) {
+            if (tgt === this.id) return this.game.ship;
+            const entry = this.mirrorShips.get(tgt);
+            return entry ? entry.ship : null;
+        }
+        return this._enemyByNetId(tgt);
+    }
+
+    /** Ennemi par netId : miroir (client) ou scan linéaire des ennemis réels (hôte). */
+    _enemyByNetId(netId) {
+        const mirror = this.mirrorEnemies.get(netId);
+        if (mirror) return mirror;
+        const enemies = this.game.enemies;
+        for (let i = 0; i < enemies.length; i++) {
+            if (enemies[i].netId === netId) return enemies[i];
+        }
+        return null;
     }
 
     // ============================================================
@@ -476,6 +580,14 @@ export class CoopSystem {
             for (const pr of m.pr) {
                 if (pr.o === this.id) continue;
                 this._spawnVisualProjectile(pr);
+            }
+        }
+
+        // --- Missiles visuels (re-simulés localement, sans dégât) ---
+        if (m.mr && m.mr.length) {
+            for (const mr of m.mr) {
+                if (mr.o === this.id) continue;
+                this._spawnVisualMissileFromNet(mr, mr.en);
             }
         }
 
@@ -699,6 +811,8 @@ export class CoopSystem {
         for (const p of this.visualProjectiles) { scene.remove(p.mesh); p.dispose(); }
         this.visualProjectiles.length = 0;
         this._pendingProjectiles.length = 0;
+        this._pendingMissiles.length = 0;
+        this.game.missiles?.clearVisualMissiles();
         for (const mp of this.mirrorPowerups.values()) { scene.remove(mp.object); mp.dispose(); }
         this.mirrorPowerups.clear();
         // Réduit le roster de jeu au seul joueur local.

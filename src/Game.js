@@ -512,6 +512,26 @@ export class Game {
             obstacleGrid: this._obstacleGrid,
         });
 
+        // Missiles : le client verrouille + tire localement (cibles = miroirs,
+        // vélocité synchro → homing correct). Le dégât est arbitré par l'hôte
+        // (authoritative=false → HIT). Les missiles ennemis/alliés sont rejoués
+        // en visuels via les snapshots.
+        const isLockHeld = !!(this.mouse && this.mouse.locking);
+        const justReleased = this._wasLockHeld && !isLockHeld;
+        this.missiles.update(dt, {
+            player: this.ship,
+            players: this.players,
+            enemies: this.enemies,
+            obstacleGrid: this._obstacleGrid,
+            camera: this.sceneManager.camera,
+            isLockHeld,
+            justReleased,
+        });
+        this._wasLockHeld = isLockHeld;
+        const mstatus = this.missiles.getStatus();
+        if (mstatus.locked > this._prevLockedCount) this.sounds.lockBeep();
+        this._prevLockedCount = mstatus.locked;
+
         // Collision du vaisseau local contre les astéroïdes (le client simule le sien).
         this.collisions.resolveBody(this.ship, 1.5, 0.3);
 

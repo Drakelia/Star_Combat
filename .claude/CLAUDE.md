@@ -117,28 +117,29 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-28 (commit 5befd49). Confidence: 100%.
+Last indexed: 2026-05-30 (commit 862021a). Confidence: 100%.
 ### Architecture
-repo is a browser-based 3D space shooter game: it takes player input (keyboard/mouse controls) and game configuration data, runs a real-time simulation pipeline through Three.js scene management, physics, enemy AI, and collision detection, and renders an interactive space combat experience with asteroids, enemy ships, planets, a parallax starfield, and a HUD overlay to the browser canvas. The game loop begins at src/main.js, which bootstraps the Three.js renderer and wires together all subsystems. Player input flows through a control layer (including boost state management), drives a player ship entity, and is evaluated against enemy entities (Sniper, Tank) and environmental hazards (asteroids, asteroid fields). Each frame, the SceneManager orchestrates entity updates, the ChaseCamera follows the player, AsteroidStreamer procedurally streams asteroid content, HudManager composites on-screen indicators (including EnemyMarkers), and Explosion effects are spawned on collision.
+This repository is a browser-based 3D space shooter game: it takes player input (mouse aim, keyboard controls) and server-side multiplayer state, runs a real-time game loop that simulates a physics-driven spaceship, asteroid fields, projectiles, and missiles, and renders the resulting scene to a WebGL canvas with a HUD overlay and spatial audio. The game is structured as a client-side JavaScript application (src/) paired with a lightweight Node.js multiplayer server (server/). The client bootstraps via src/main.js, initialises all subsystems (controls, entities, audio, HUD), and drives a per-frame update/render cycle. The server (server/server.js) manages connected sessions and synchronises game state across clients.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `community-0` | The entities module is the **core simulation layer** of the game's runtime pipel | — |
 ### Entry Points
+- `server/server.js`
 - `src/main.js`
 ### Architectural Layers
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| Pause Management System | 31 | Handles game pause state logic and coordinates pausing and resuming of game syst |
-| Claude AI Settings | 1 | Configuration file defining permissions and preferences for the Claude AI assist |
-| Design Canvas State | 1 | Persisted UI state for the visual design reference canvas used during project pl |
-| Entity Scaffolding Command | 1 | A Claude slash-command template that automates the creation of new game entity b |
-| Project Documentation | 1 | Top-level documentation file providing an overview of the project structure, con |
-| Project Documentation | 1 | Top-level README providing an overview and usage instructions for the project. |
-| Audit Command | 1 | Claude AI command definition for running a code or design audit workflow. |
-| Design Chat Reference | 1 | Archived design discussion chat used as a reference for design decisions. |
-| Design Reference Docs | 1 | README documenting the purpose and structure of the design reference materials. |
-| Design Direction Prototypes | 6 | JSX components representing multiple visual design directions and a project char |
+| entities | 32 |  |
+| devserver | 3 |  |
+| launch | 1 |  |
+| commands | 1 |  |
+| .mcp | 1 |  |
+| readme | 1 |  |
+| claude | 1 |  |
+| settings | 1 |  |
+| commands (1) | 1 |  |
+| readme (1) | 1 |  |
 
 ### Guided Tour (12 steps)
 1. **Project Overview & Conventions** — `CLAUDE.md`
@@ -151,23 +152,23 @@ repo is a browser-based 3D space shooter game: it takes player input (keyboard/m
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `src/Game.js` | 100.0th %ile | 26 | drakelia |
-| `src/systems/MissileSystem.js` | 99.2th %ile | 14 | drakelia |
-| `src/systems/EnemyAI.js` | 98.3th %ile | 8 | drakelia |
-| `src/hud/HudManager.js` | 97.5th %ile | 6 | drakelia |
-| `src/audio/SoundManager.js` | 96.7th %ile | 4 | drakelia |
+| `src/Game.js` | 100.0th %ile | 27 | drakelia |
+| `styles.css` | 99.3th %ile | 15 | drakelia |
+| `src/systems/MissileSystem.js` | 98.7th %ile | 15 | drakelia |
+| `index.html` | 98.0th %ile | 17 | drakelia |
+| `src/systems/EnemyAI.js` | 97.4th %ile | 9 | drakelia |
 
 ## Code health
-Hotspot health: 6.26/10 (stable) ·
-Average: 6.57/10 ·
-Worst: 1.0/10 (`src/systems/MissileSystem.js`)
+Hotspot health: 6.28/10 (stable) ·
+Average: 6.71/10 ·
+Worst: 1.8/10 (`src/systems/MissileSystem.js`)
 
 ### Critical biomarkers
+- `src/systems/CombatSystem.js` — nested complexity (update) — impact −2.0
 - `src/systems/MissileSystem.js` — nested complexity (update) — impact −1.7
-- `src/systems/CombatSystem.js` — hidden coupling — impact −1.5
 - `.design-ref/project/charte.jsx` — large method (ChartePanel) — impact −1.5
 - `src/controls/ShipController.js` — complex method (update) — impact −1.3
-- `src/systems/MissileSystem.js` — hidden coupling — impact −0.9
+- `src/systems/CoopSystem.js` — complex method (_onSnapshot) — impact −0.6
 
 ### Repowise MCP Tools
 
