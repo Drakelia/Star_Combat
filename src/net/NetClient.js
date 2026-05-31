@@ -6,7 +6,15 @@ import { MSG, encode, decode } from './Protocol.js';
  * Couche transport pure — ne connaît rien du gameplay. `CoopSystem` s'y abonne
  * via `on(type, cb)` et traduit les messages en actions de jeu. Le format de
  * message est `{ t: <type>, ... }` (cf. `Protocol.js`).
+ *
+ * Reconnexion : une fois la 1ʳᵉ connexion établie, toute coupure de transport
+ * déclenche des tentatives de reconnexion automatiques (backoff exponentiel
+ * borné). Les abonnements (`on`) survivent aux reconnexions ; le serveur renvoie
+ * un `welcome` à chaque (re)connexion, c'est `CoopSystem` qui décide quoi en
+ * faire (late-join / ré-application des rôles). `close()` coupe définitivement.
  */
+const RECONNECT_MAX_DELAY = 15000;
+
 export class NetClient {
     constructor(url) {
         this.url = url;
@@ -15,34 +23,62 @@ export class NetClient {
         this.isHost = false;
         this.connected = false;
         this._handlers = new Map(); // type -> Set<cb>
+        this._autoReconnect = false; // activé après la 1ʳᵉ connexion réussie
+        this._closed = false;        // close() définitif demandé
+        this._retryTimer = null;
+        this._retryDelay = 0;
     }
 
-    /** Ouvre la connexion. Résout à l'ouverture, rejette en cas d'échec. */
+    /** Ouvre la connexion. Résout à l'ouverture, rejette en cas d'échec initial. */
     connect() {
-        return new Promise((resolve, reject) => {
-            let settled = false;
-            let ws;
-            try {
-                ws = new WebSocket(this.url);
-            } catch (e) {
-                reject(e);
-                return;
-            }
-            this.ws = ws;
-            ws.onopen = () => {
-                this.connected = true;
-                if (!settled) { settled = true; resolve(); }
-            };
-            ws.onmessage = (ev) => this._onMessage(ev.data);
-            ws.onerror = (e) => {
-                if (!settled) { settled = true; reject(e); }
-                this._emit('error', e);
-            };
-            ws.onclose = () => {
-                this.connected = false;
-                this._emit('close', {});
-            };
-        });
+        this._closed = false;
+        return new Promise((resolve, reject) => this._wire(resolve, reject));
+    }
+
+    /**
+     * Câble une socket. `resolve/reject` ne sont fournis que pour la connexion
+     * initiale (via `connect()`) ; les reconnexions passent `null` et signalent
+     * leur succès via l'événement `reconnect`.
+     */
+    _wire(resolve, reject) {
+        let settled = false;
+        let ws;
+        try {
+            ws = new WebSocket(this.url);
+        } catch (e) {
+            if (reject) { reject(e); return; }
+            this._scheduleReconnect();
+            return;
+        }
+        this.ws = ws;
+        ws.onopen = () => {
+            this.connected = true;
+            this._retryDelay = 0;
+            this._autoReconnect = true; // on ne reconnecte qu'après un 1ᵉʳ succès
+            if (resolve && !settled) { settled = true; resolve(); }
+            else this._emit('reconnect', {});
+        };
+        ws.onmessage = (ev) => this._onMessage(ev.data);
+        ws.onerror = (e) => {
+            if (reject && !settled) { settled = true; reject(e); }
+            this._emit('error', e);
+        };
+        ws.onclose = () => {
+            this.connected = false;
+            this.ws = null;
+            this._emit('close', {});
+            if (this._autoReconnect && !this._closed) this._scheduleReconnect();
+        };
+    }
+
+    _scheduleReconnect() {
+        if (this._closed || this._retryTimer) return;
+        this._retryDelay = this._retryDelay ? Math.min(this._retryDelay * 2, RECONNECT_MAX_DELAY) : 1000;
+        this._retryTimer = setTimeout(() => {
+            this._retryTimer = null;
+            if (this._closed) return;
+            this._wire(null, null);
+        }, this._retryDelay);
     }
 
     _onMessage(data) {
@@ -84,6 +120,9 @@ export class NetClient {
     }
 
     close() {
+        this._closed = true;
+        this._autoReconnect = false;
+        if (this._retryTimer) { clearTimeout(this._retryTimer); this._retryTimer = null; }
         if (this.ws) {
             try { this.ws.onclose = null; this.ws.close(); } catch { /* ignore */ }
             this.ws = null;

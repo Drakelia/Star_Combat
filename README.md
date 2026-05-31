@@ -37,6 +37,8 @@ Comme le serveur Node sert le jeu **et** le relais sur une seule origine, le cli
 - **Déploiement gratuit (Render)** : un blueprint [`render.yaml`](render.yaml) est fourni. Connectez le dépôt sur [render.com](https://render.com) → *New + → Blueprint*. Render bâtit, fournit le HTTPS et une URL permanente à partager.
 - **Tunnel local** : exposez le port avec un tunnel (`cloudflared tunnel --url http://localhost:8080`, ou `ssh -R 80:localhost:8080 localhost.run`) et partagez l'URL https obtenue.
 
+> **Veille de l'hébergeur (free tier Render).** Render endort une instance gratuite après ~15 min sans trafic HTTP — et le trafic WebSocket ne réinitialise pas ce minuteur. Pendant une partie, le client envoie donc automatiquement un petit ping HTTP (`/healthz`) toutes les 4 min pour garder l'instance éveillée. Si une coupure survient malgré tout, le jeu **tente de se reconnecter automatiquement** (bannière « Connexion perdue — reconnexion… ») et rejoint la session en cours. Si c'est l'**hôte** qui se déconnecte, la session se termine (l'autorité de simulation est chez lui) et tout le monde revient au menu. Pour zéro veille du tout, passez l'instance Render au plan payant.
+
 ## Commandes
 
 | Touche | Action |
@@ -149,6 +151,7 @@ Le mode coop fait jouer **plusieurs pilotes dans le même monde** contre les vag
 - Le menu **⊕ MULTIJOUEUR** connecte au serveur et affiche le **lobby** (liste des pilotes). Le premier connecté devient l'**hôte**.
 - L'hôte lance la partie ; tous les clients démarrent en même temps. Un joueur qui se connecte en cours de partie rejoint à la volée (*late-join*).
 - Si l'hôte quitte, la session se termine et tout le monde revient au menu.
+- **Reconnexion automatique** : en cas de coupure réseau passagère, un client affiche « Connexion perdue — reconnexion… » et retente seul, puis **rejoint la partie en cours** sans repasser par le lobby. (Si c'est l'hôte qui tombe, la session se termine pour tous.)
 
 ### Monde partagé
 

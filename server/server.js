@@ -61,6 +61,14 @@ function serveStatic(req, res) {
         res.writeHead(400).end('Bad request');
         return;
     }
+    // Sonde de présence légère : un GET HTTP périodique (côté client, pendant une
+    // session) réinitialise le minuteur d'inactivité de l'hébergeur — le trafic
+    // WebSocket, lui, ne le réinitialise PAS (cf. free tier Render). Réponse
+    // immédiate, sans toucher au disque.
+    if (reqPath === '/healthz') {
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end('ok');
+        return;
+    }
     let filePath = path.join(ROOT, reqPath === '/' ? 'index.html' : reqPath);
     filePath = path.normalize(filePath);
     if (!filePath.startsWith(ROOT)) {

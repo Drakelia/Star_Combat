@@ -117,24 +117,31 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-31 (commit d741eae). Confidence: 100%.
+Last indexed: 2026-05-31 (commit 9aaa205). Confidence: 100%.
 ### Architecture
-repo is a multiplayer browser-based missile-defense game: it accepts player input and real-time network messages as inputs, processes them through a client-side game loop (entity management, AI, physics, wave progression, and rendering) backed by a Node.js WebSocket server, and produces an interactive 2D game session with cooperative multiplayer support, HUD feedback, visual effects, and synchronized game state across connected clients. The game follows a classic arcade pattern — waves of enemies descend on a base, players fire missiles to intercept them, and cooperative mechanics allow multiple players to share the defense. The architecture is split cleanly between a thin authoritative server (server/server.js) handling connections and state relay, and a rich client (src/) that owns all gameplay logic, rendering, and UI. ---
+repo is a browser-based 2D space shooter game: it takes player input and game configuration as inputs, runs a real-time simulation pipeline (physics, AI, collision detection via spatial grids, projectile/missile systems, and procedural asteroid streaming), and renders an interactive game scene to an HTML5 canvas, served to clients via a lightweight Node.js HTTP/WebSocket server. The game loop ingests keyboard/mouse events, routes them through an entity-component architecture (ships, fighters, sniper enemies, missiles, asteroids), resolves physics and spatial queries each frame, updates a HUD layer (velocity markers, score, etc.), and plays back procedural audio — all rendered live in the browser. The server (server/server.js) acts as the host layer, serving static assets and potentially coordinating multiplayer or session state. ---
 
 
 
-| Layer | Technology | Role |
+| Layer | Technology | Notes |
 |---|---|---|
-| Runtime | Node.js | Server process hosting WebSocket connections |
-| Networking | WebSocket (ws library) | Real-time bidirectional communication between server and clients |
-| Client Language | Vanilla JavaScript (ES Modules) | All game logic, rendering, and UI |
-| Rendering | Browser Canvas API (2D) | Game world, effects, HUD drawing |
-| Configuration | .mcp.json, .claude/settings.json | MCP tooling and AI-assistant integration |
-| Build/Serve | Static file serving via server.js | Delivers client assets alongside WebSocket endpoint |
-| Scripting | Python (minor) | Utility/tooling scripts |
-| CI/Config | YAML | Pipeline or environment configuration |
+| **Runtime** | Node.js | Server-side host process |
+| **Server framework** | Vanilla Node.js HTTP (server/server.js) | Serves static assets; likely WebSocket support |
+| **Game engine** | Custom (no framework) | Hand-rolled ECS in plain JavaScript |
+| **Rendering** | HTML5 Canvas API | 2D sprite/vector rendering |
+| **Physics** | Custom spatial grid (SpatialGrid.js) | Broad-phase collision detection |
+| **Audio** | Web Audio API (MusicManager.js) | Procedural/dynamic music |
+| **Language** | JavaScript (ES modules) | 81% of codebase |
+| **Design references** | JSX (.design-ref/) | Static design mockups, not compiled into game |
+| **Configuration** | JSON / YAML | Game config, launch config |
+| **Tooling** | Python scripts (minor) | Likely build or asset utilities |
 
-No frontend framework or bundler is evident — the client runs as native ES modules delivered directly by the server.
+---
+
+
+
+
+The primary server entry point.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
