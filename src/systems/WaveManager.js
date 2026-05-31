@@ -214,12 +214,17 @@ export class WaveManager {
     }
 
     getStatus() {
+        const nextWave = this.wave + 1;
         return {
             wave: this.wave,
             state: this.state,
             countdown: this.state === 'intermission' ? Math.max(0, this.intermission) : 0,
             justAdvanced: this.justAdvanced,
             isBossWave: this.wave > 0 && this.wave % 5 === 0,
+            // Vague à venir pendant l'intermission → alimente l'animation
+            // « prochaine vague » au centre de l'écran.
+            nextWave,
+            nextIsBoss: nextWave % 5 === 0,
         };
     }
 }

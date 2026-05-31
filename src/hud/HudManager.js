@@ -67,6 +67,12 @@ export class HudManager {
         this.powerupBannerEl = document.getElementById('powerup-banner');
         this.waveBannerEl = document.getElementById('wave-banner');
 
+        // Compte à rebours centré « prochaine vague » (visible en intermission).
+        this.waveIncomingEl      = document.getElementById('wave-incoming');
+        this.waveIncomingCountEl = document.getElementById('wave-incoming-count');
+        this.waveIncomingWaveEl  = document.getElementById('wave-incoming-wave');
+        this.waveIncomingLabelEl = document.getElementById('wave-incoming-label');
+
         // Defeat overlay
         this.defeatOverlayEl = document.getElementById('defeat-overlay');
         this.defeatFieldEls = {
@@ -136,6 +142,11 @@ export class HudManager {
             shieldHitBucket: null,
             chromeTime: null,
             missileActive: null,
+            waveIncomingShow: null,
+            waveIncomingBoss: null,
+            waveIncomingCount: null,
+            waveIncomingWave: null,
+            waveIncomingLabel: null,
         };
 
         // Vitesse max approx pour la barre verticale (m/s).
@@ -248,9 +259,38 @@ export class HudManager {
             this._setText(this.hudChromeTimeEl, 'chromeTime', txt);
         }
 
+        this._updateWaveIncoming(wave, isIntermission);
+
         this._updateBuffs(ship);
         this._updateShieldBar(ship);
         this._updateDamageVignette(ship, hpRatio);
+    }
+
+    /**
+     * Animation centrée annonçant l'arrivée de la prochaine vague pendant
+     * l'intermission. Variante « boss » (rouge + alerte clignotante) quand la
+     * vague à venir est plus dure (toutes les 5 vagues).
+     */
+    _updateWaveIncoming(wave, isIntermission) {
+        const el = this.waveIncomingEl;
+        if (!el) return;
+
+        if (!isIntermission) {
+            this._toggleClass(el, 'show', 'waveIncomingShow', false);
+            return;
+        }
+
+        const isBoss = !!wave.nextIsBoss;
+        const nextWave = wave.nextWave || 1;
+        const count = Math.max(0, Math.ceil(wave.countdown));
+
+        this._toggleClass(el, 'show', 'waveIncomingShow', true);
+        this._toggleClass(el, 'boss', 'waveIncomingBoss', isBoss);
+        this._setText(this.waveIncomingLabelEl, 'waveIncomingLabel',
+            isBoss ? 'ESCADRON BOSS EN APPROCHE' : 'PROCHAINE VAGUE');
+        this._setText(this.waveIncomingCountEl, 'waveIncomingCount', String(count));
+        this._setText(this.waveIncomingWaveEl, 'waveIncomingWave',
+            `VAGUE ${String(nextWave).padStart(2, '0')}`);
     }
 
     setRunTime(sec) {
