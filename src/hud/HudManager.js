@@ -6,6 +6,8 @@
  * Refonte UI : Direction A · STRIKE — bindings sur les nouveaux IDs.
  */
 
+import { POWERUP_TYPES } from '../entities/Powerup.js';
+
 const ENEMY_LABELS = {
     fighter: 'FIGHTER',
     sniper:  'SNIPER',
@@ -56,6 +58,10 @@ export class HudManager {
         // Bannière de réapparition coop
         this.respawnBannerEl = document.getElementById('respawn-banner');
         this._respawnCache = null;
+
+        // Bannières ponctuelles (powerup ramassé / nouvelle vague).
+        this.powerupBannerEl = document.getElementById('powerup-banner');
+        this.waveBannerEl = document.getElementById('wave-banner');
 
         // Defeat overlay
         this.defeatOverlayEl = document.getElementById('defeat-overlay');
@@ -343,6 +349,35 @@ export class HudManager {
 
     hideDefeat() {
         if (this.defeatOverlayEl) this.defeatOverlayEl.classList.remove('show');
+    }
+
+    /** Flash bannière « powerup ramassé ». Le reflow force le replay de l'anim. */
+    flashPowerup(type) {
+        const banner = this.powerupBannerEl;
+        if (!banner) return;
+        const def = POWERUP_TYPES[type];
+        if (!def) return;
+        const hex = def.color.toString(16).padStart(6, '0');
+        banner.textContent = def.label;
+        banner.style.color = '#' + hex;
+        banner.style.textShadow = `0 0 16px #${hex}`;
+        banner.classList.remove('show');
+        void banner.offsetWidth;
+        banner.classList.add('show');
+    }
+
+    /** Flash bannière de nouvelle vague (variante « boss » toutes les 5 vagues). */
+    flashWaveBanner(wave) {
+        const banner = this.waveBannerEl;
+        if (!banner) return;
+        const isBoss = wave > 0 && wave % 5 === 0;
+        banner.textContent = isBoss
+            ? `▲ ▲ ▲  BOSS INCOMING — VAGUE ${wave}  ▲ ▲ ▲`
+            : `▸ VAGUE ${wave}`;
+        banner.classList.toggle('boss', isBoss);
+        banner.classList.remove('show');
+        void banner.offsetWidth;
+        banner.classList.add('show');
     }
 
     _updateShieldBar(ship) {

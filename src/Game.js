@@ -16,15 +16,17 @@ import { ExplosionManager } from './effects/ExplosionManager.js';
 import { MissileSystem } from './systems/MissileSystem.js';
 import { WaveManager } from './systems/WaveManager.js';
 import { PowerupSystem } from './systems/PowerupSystem.js';
-import { POWERUP_TYPES } from './entities/Powerup.js';
 import { HudManager } from './hud/HudManager.js';
 import { SpatialGrid } from './physics/SpatialGrid.js';
 import { AsteroidStreamer } from './systems/AsteroidStreamer.js';
 import { PauseManager } from './systems/PauseManager.js';
-import { TargetLock, enemyLabel } from './systems/TargetLock.js';
+import { TargetLock } from './systems/TargetLock.js';
 import { EnemyMarkers } from './hud/EnemyMarkers.js';
 import { AllyMarkers } from './hud/AllyMarkers.js';
 import { TargetView } from './hud/TargetView.js';
+import { LockHud } from './hud/LockHud.js';
+import { VelocityMarker } from './hud/VelocityMarker.js';
+import { LeadIndicator } from './hud/LeadIndicator.js';
 import { mulberry32, randomSeed } from './util/Rng.js';
 import { CoopSystem } from './systems/CoopSystem.js';
 
@@ -81,7 +83,6 @@ export class Game {
         };
 
         this.hud = new HudManager();
-        this.waveBanner = document.getElementById('wave-banner');
 
         this.pause = new PauseManager({
             overlayEl: document.getElementById('pause-overlay'),
@@ -90,36 +91,24 @@ export class Game {
             onShowMenu: () => this.returnToMenu(),
         });
 
-        this.leadOverlay = document.getElementById('lead-overlay');
-        this._leadPool = [];
-
         this.targetLock = new TargetLock();
-        this.lockFrameEl = document.getElementById('lock-frame');
-        this.lockArrowEl = document.getElementById('lock-arrow');
-        this.lockNameEl = this.lockFrameEl ? this.lockFrameEl.querySelector('.lock-name') : null;
-        this.lockDistanceEl = this.lockFrameEl ? this.lockFrameEl.querySelector('.lock-distance') : null;
-        this.targetInfoEl = document.getElementById('target-info');
-        this._lockCache = { name: null, distBucket: null, framePx: null, arrowPx: null };
+
+        // Widgets HUD projetés par-frame (chacun possède ses refs DOM, ses
+        // vecteurs temporaires et son cache anti-écritures-redondantes).
+        this.lockHud = new LockHud();
+        this.leadIndicator = new LeadIndicator();
+        this.velocityMarker = new VelocityMarker();
 
         // Marqueurs de type sur les ennemis non-accrochés.
         this.enemyMarkers = new EnemyMarkers(document.getElementById('enemy-markers'));
         this.allyMarkers = new AllyMarkers(document.getElementById('ally-markers'));
 
         // Vue 3D miniature de la cible accrochée, intégrée au panneau LOCKED TARGET.
-        this.targetView = new TargetView(this.targetInfoEl);
-
-        // Indicateur de vélocité (prograde marker, façon Star Citizen).
-        this.velocityVectorEl = document.getElementById('velocity-vector');
-        this._velocityVisible = false;
+        this.targetView = new TargetView(document.getElementById('target-info'));
 
         this.projectileSpeed = 380;
         this.projectileLifetime = 2.2;
         this.aimDistance = 1500;
-        this._tmpVec = new THREE.Vector3();
-        this._tmpNdc = new THREE.Vector3();
-        this._tmpForward = new THREE.Vector3();
-        this._tmpRight = new THREE.Vector3();
-        this._tmpUp = new THREE.Vector3();
 
         // Graine du monde : pilote toute la génération procédurale des champs
         // d'astéroïdes via un PRNG déterministe. En solo (seed === null) elle est
@@ -435,7 +424,7 @@ export class Game {
         // pas tourner le streamer (il rejoue via CoopSystem → applyRemote).
         this.streamer.update(dt, this.players, this.mode === 'host' ? this._streamEmit : null);
         this.waveManager.update(dt, this.players);
-        if (this.waveManager.justAdvanced) this._flashWaveBanner();
+        if (this.waveManager.justAdvanced) this.hud.flashWaveBanner(this.waveManager.wave);
         this.chaseCamera.update(dt);
 
         this._updatePlayersLifecycle(dt);
@@ -460,32 +449,7 @@ export class Game {
         }
         this.targetLock.update(this.enemies, this.ship, cam, mx, my);
 
-        this._updateHud();
-        this._updateLockHUD();
-        this._updateLeadIndicators();
-        this._updateVelocityVector();
-        if (this.enemyMarkers) {
-            this.enemyMarkers.update(
-                this.enemies,
-                this.targetLock?.target,
-                this.sceneManager.camera,
-                window.innerWidth,
-                window.innerHeight,
-            );
-        }
-        if (this.allyMarkers && this.players.length > 1) {
-            this.allyMarkers.update(this.players, this.ship, this.sceneManager.camera, window.innerWidth, window.innerHeight);
-        } else if (this.allyMarkers) {
-            this.allyMarkers.hideAll();
-        }
-        if (this.targetView) {
-            this.targetView.update(
-                this.targetLock?.target,
-                this.sceneManager.camera,
-                this.ship.object.position,
-                dt,
-            );
-        }
+        this._updateOverlays(dt);
 
         // Hôte : diffuse l'état autoritatif (throttlé à ~20 Hz dans CoopSystem).
         if (this.mode === 'host') this.coop.hostBroadcast(dt);
@@ -556,21 +520,7 @@ export class Game {
         if (this.input.consume('KeyY')) this.targetLock.cycleByShipDistance(this.enemies, this.ship);
         this.targetLock.update(this.enemies, this.ship, cam, mx, my);
 
-        this._updateHud();
-        this._updateLockHUD();
-        this._updateLeadIndicators();
-        this._updateVelocityVector();
-        if (this.enemyMarkers) {
-            this.enemyMarkers.update(this.enemies, this.targetLock?.target, cam, window.innerWidth, window.innerHeight);
-        }
-        if (this.allyMarkers && this.players.length > 1) {
-            this.allyMarkers.update(this.players, this.ship, cam, window.innerWidth, window.innerHeight);
-        } else if (this.allyMarkers) {
-            this.allyMarkers.hideAll();
-        }
-        if (this.targetView) {
-            this.targetView.update(this.targetLock?.target, cam, this.ship.object.position, dt);
-        }
+        this._updateOverlays(dt);
 
         this.sceneManager.render();
     }
@@ -590,360 +540,38 @@ export class Game {
     }
 
     /**
-     * HUD du verrouillage de cible : carré à coins autour de la cible (à
-     * l'écran) ou flèche directionnelle agrandie (hors écran), plus le
-     * panneau d'infos top-left. Tout est fait en NDC, sans allocation.
+     * Met à jour tous les overlays HUD projetés par-frame (lock, lead,
+     * vélocité, marqueurs ennemis/alliés, mini-vue cible). Partagé par les
+     * deux boucles (hôte/solo et client coop) pour éviter la duplication.
      */
-    _updateLockHUD() {
-        const target = this.targetLock.target;
-        const frame = this.lockFrameEl;
-        const arrow = this.lockArrowEl;
-        const info = this.targetInfoEl;
-
-        if (!target || !target.alive) {
-            if (frame && frame.classList.contains('visible')) frame.classList.remove('visible');
-            if (arrow && arrow.classList.contains('visible')) arrow.classList.remove('visible');
-            if (info && info.classList.contains('visible')) info.classList.remove('visible');
-            this._lockCache.name = null;
-            this._lockCache.distBucket = null;
-            return;
-        }
-
+    _updateOverlays(dt) {
         const cam = this.sceneManager.camera;
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const cx = w * 0.5;
-        const cy = h * 0.5;
+        const target = this.targetLock?.target ?? null;
+        const shipPos = this.ship.object.position;
 
-        const forward = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
-        const right = this._tmpRight.set(1, 0, 0).applyQuaternion(cam.quaternion);
-        const up = this._tmpUp.set(0, 1, 0).applyQuaternion(cam.quaternion);
+        this._updateHud();
+        this.lockHud.update(target, cam, shipPos, w, h);
 
-        const offset = this._tmpVec.copy(target.object.position).sub(cam.position);
-        const fwdDot = offset.dot(forward);
-        const sxView = offset.dot(right);
-        const syView = offset.dot(up);
-        const isBehind = fwdDot <= 0;
-        const ndc = this._tmpNdc.copy(target.object.position).project(cam);
-        const onScreen = !isBehind && Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1;
+        // Lead-indicator : renvoie le point écran d'attraction (ou null) que
+        // l'on pousse à l'aim-assist du MouseAim.
+        const lead = this.leadIndicator.update(
+            this.ship, target, cam,
+            this.projectileSpeed, this.projectileLifetime, this.aimDistance,
+            w, h,
+        );
+        if (this.mouse && this.mouse.setMagnet) this.mouse.setMagnet(lead);
 
-        const distance = target.object.position.distanceTo(this.ship.object.position);
+        this.velocityMarker.update(this.ship, cam, w, h);
 
-        // Panneau info top-left
-        if (info) {
-            if (!info.classList.contains('visible')) info.classList.add('visible');
-            const name = enemyLabel(target);
-            if (this._lockCache.name !== name) {
-                const nameEl = info.querySelector('.ti-name');
-                if (nameEl) nameEl.textContent = name;
-                this._lockCache.name = name;
-            }
-            const fillEl = info.querySelector('.ti-bar-fill');
-            if (fillEl) {
-                const ratio = Math.max(0, Math.min(1, target.hp / target.maxHp));
-                const bucket = Math.round(ratio * 100);
-                if (this._lockCache.hpBucket !== bucket) {
-                    fillEl.style.transform = `scaleX(${(bucket / 100).toFixed(2)})`;
-                    this._lockCache.hpBucket = bucket;
-                }
-            }
-            const speedEl = info.querySelector('.ti-speed');
-            const speedVal = target.velocity.length().toFixed(0);
-            if (this._lockCache.speedTxt !== speedVal && speedEl) {
-                speedEl.textContent = speedVal;
-                this._lockCache.speedTxt = speedVal;
-            }
-            const distEl = info.querySelector('.ti-dist');
-            const distVal = distance < 1000 ? distance.toFixed(0) : (distance / 1000).toFixed(1) + 'k';
-            if (this._lockCache.distTxt !== distVal && distEl) {
-                distEl.textContent = distVal;
-                this._lockCache.distTxt = distVal;
-            }
-        }
-
-        if (onScreen) {
-            // Taille du cadre proportionnelle au rayon perçu à l'écran :
-            // sizePx ≈ (radius / dist) * h / tan(fov/2).
-            const dist = offset.length();
-            const halfFovTan = Math.tan((cam.fov * Math.PI / 180) * 0.5);
-            const targetSize = (target.radius * 2.4 / Math.max(0.001, dist)) * h / Math.max(0.001, halfFovTan);
-            const size = Math.max(56, Math.min(240, targetSize));
-
-            const px = (ndc.x * 0.5 + 0.5) * w;
-            const py = (-ndc.y * 0.5 + 0.5) * h;
-
-            if (frame) {
-                if (!frame.classList.contains('visible')) frame.classList.add('visible');
-                frame.style.width = size + 'px';
-                frame.style.height = size + 'px';
-                frame.style.transform = `translate(${px - size / 2}px, ${py - size / 2}px)`;
-
-                const distTxt = (distance < 1000)
-                    ? distance.toFixed(0) + ' m'
-                    : (distance / 1000).toFixed(2) + ' km';
-                if (this._lockCache.frameDist !== distTxt && this.lockDistanceEl) {
-                    this.lockDistanceEl.textContent = distTxt;
-                    this._lockCache.frameDist = distTxt;
-                }
-                const lbl = enemyLabel(target);
-                if (this._lockCache.frameName !== lbl && this.lockNameEl) {
-                    this.lockNameEl.textContent = lbl;
-                    this._lockCache.frameName = lbl;
-                }
-            }
-            if (arrow && arrow.classList.contains('visible')) arrow.classList.remove('visible');
+        this.enemyMarkers.update(this.enemies, target, cam, w, h);
+        if (this.players.length > 1) {
+            this.allyMarkers.update(this.players, this.ship, cam, w, h);
         } else {
-            // Flèche directionnelle bord d'écran (grande version réservée
-            // à la cible lockée).
-            if (frame && frame.classList.contains('visible')) frame.classList.remove('visible');
-
-            const margin = 56;
-            const halfW = cx - margin;
-            const halfH = cy - margin;
-
-            let sdx = sxView;
-            let sdy = -syView;
-            const len = Math.hypot(sdx, sdy);
-            if (len < 0.0001) { sdx = 0; sdy = -1; }
-            else { sdx /= len; sdy /= len; }
-
-            const tX = sdx === 0 ? Infinity : halfW / Math.abs(sdx);
-            const tY = sdy === 0 ? Infinity : halfH / Math.abs(sdy);
-            const t = Math.min(tX, tY);
-            const px = cx + sdx * t;
-            const py = cy + sdy * t;
-            const angle = Math.atan2(sdx, -sdy);
-
-            if (arrow) {
-                if (!arrow.classList.contains('visible')) arrow.classList.add('visible');
-                arrow.style.transform =
-                    `translate(${px}px, ${py}px) translate(-50%, -50%) rotate(${angle}rad) scale(1.6)`;
-            }
+            this.allyMarkers.hideAll();
         }
-    }
-
-    /**
-     * Indicateur de vélocité (prograde marker) façon Star Citizen : un petit
-     * marqueur projeté à l'écran dans la direction réelle de déplacement du
-     * vaisseau. Caché si la vitesse est trop faible ou si la direction est
-     * derrière la caméra.
-     */
-    _updateVelocityVector() {
-        const el = this.velocityVectorEl;
-        if (!el) return;
-
-        const vel = this.ship.velocity;
-        const speed2 = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
-        // Seuil : ~3 m/s pour éviter le jitter à l'arrêt.
-        if (speed2 < 9) {
-            if (this._velocityVisible) {
-                el.classList.remove('visible');
-                this._velocityVisible = false;
-            }
-            return;
-        }
-
-        const cam = this.sceneManager.camera;
-        const camFwd = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
-
-        // Point virtuel loin devant le vaisseau dans la direction de la vélocité.
-        const speed = Math.sqrt(speed2);
-        const inv = 1 / speed;
-        const D = 2000;
-        const px = this.ship.object.position.x + vel.x * inv * D;
-        const py = this.ship.object.position.y + vel.y * inv * D;
-        const pz = this.ship.object.position.z + vel.z * inv * D;
-
-        // Test "devant la caméra" via produit scalaire — project() est non
-        // fiable derrière.
-        const dx = px - cam.position.x;
-        const dy = py - cam.position.y;
-        const dz = pz - cam.position.z;
-        const fwdDot = dx * camFwd.x + dy * camFwd.y + dz * camFwd.z;
-        if (fwdDot <= 0.1) {
-            if (this._velocityVisible) {
-                el.classList.remove('visible');
-                this._velocityVisible = false;
-            }
-            return;
-        }
-
-        const ndc = this._tmpNdc.set(px, py, pz).project(cam);
-        if (Math.abs(ndc.x) > 1.05 || Math.abs(ndc.y) > 1.05) {
-            if (this._velocityVisible) {
-                el.classList.remove('visible');
-                this._velocityVisible = false;
-            }
-            return;
-        }
-
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        const sx = (ndc.x * 0.5 + 0.5) * w;
-        const sy = (-ndc.y * 0.5 + 0.5) * h;
-        el.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -50%)`;
-        if (!this._velocityVisible) {
-            el.classList.add('visible');
-            this._velocityVisible = true;
-        }
-    }
-
-    _updateLeadIndicators() {
-        if (!this.leadOverlay) return;
-        const cam = this.sceneManager.camera;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-
-        const muzzle = this.ship.object.position;
-        const s = this.projectileSpeed;
-        const s2 = s * s;
-        const maxT = this.projectileLifetime;
-
-        const camFwd = this._tmpForward.set(0, 0, -1).applyQuaternion(cam.quaternion);
-
-        // Pool toujours d'1 élément : seul le lead de la cible lockée est tracé.
-        if (this._leadPool.length === 0) {
-            const dot = document.createElement('div');
-            dot.className = 'lead-dot';
-            const line = document.createElement('div');
-            line.className = 'lead-line';
-            this.leadOverlay.appendChild(line);
-            this.leadOverlay.appendChild(dot);
-            this._leadPool.push({ dot, line });
-        }
-
-        // Réinitialise leadScreen — utilisé par l'aim-assist.
-        this._leadScreen = null;
-
-        const enemy = this.targetLock ? this.targetLock.target : null;
-        const item = this._leadPool[0];
-
-        // Une seule itération : la cible lockée. Conserve la structure
-        // existante de calcul (interception balistique + projection NDC).
-        for (let pass = 0; pass < 1; pass++) {
-            if (!enemy || !enemy.alive) {
-                if (item.dot.style.display !== 'none') {
-                    item.dot.style.display = 'none';
-                    item.line.style.display = 'none';
-                }
-                break;
-            }
-
-            const ePos = enemy.object.position;
-            const sv = this.ship.velocity;
-            const evx = enemy.velocity.x - sv.x;
-            const evy = enemy.velocity.y - sv.y;
-            const evz = enemy.velocity.z - sv.z;
-
-            const Rx = ePos.x - muzzle.x;
-            const Ry = ePos.y - muzzle.y;
-            const Rz = ePos.z - muzzle.z;
-            const a = evx * evx + evy * evy + evz * evz - s2;
-            const b = 2 * (Rx * evx + Ry * evy + Rz * evz);
-            const c = Rx * Rx + Ry * Ry + Rz * Rz;
-
-            let t = -1;
-            if (Math.abs(a) < 0.0001) {
-                if (Math.abs(b) > 0.0001) t = -c / b;
-            } else {
-                const disc = b * b - 4 * a * c;
-                if (disc >= 0) {
-                    const sq = Math.sqrt(disc);
-                    const t1 = (-b - sq) / (2 * a);
-                    const t2 = (-b + sq) / (2 * a);
-                    const cands = [];
-                    if (t1 > 0) cands.push(t1);
-                    if (t2 > 0) cands.push(t2);
-                    if (cands.length) t = Math.min(...cands);
-                }
-            }
-
-            if (t <= 0 || t > maxT) {
-                item.dot.style.display = 'none';
-                item.line.style.display = 'none';
-                break;
-            }
-
-            const leadX = ePos.x + evx * t;
-            const leadY = ePos.y + evy * t;
-            const leadZ = ePos.z + evz * t;
-
-            const Bx = leadX - muzzle.x;
-            const By = leadY - muzzle.y;
-            const Bz = leadZ - muzzle.z;
-            const Ax = muzzle.x - cam.position.x;
-            const Ay = muzzle.y - cam.position.y;
-            const Az = muzzle.z - cam.position.z;
-            const B2 = Bx * Bx + By * By + Bz * Bz;
-            const AB = Ax * Bx + Ay * By + Az * Bz;
-            const A2 = Ax * Ax + Ay * Ay + Az * Az;
-            const aimD = this.aimDistance;
-
-            let aimX = leadX, aimY = leadY, aimZ = leadZ;
-            if (B2 > 0.0001) {
-                const disc2 = AB * AB - B2 * (A2 - aimD * aimD);
-                if (disc2 >= 0) {
-                    const sq2 = Math.sqrt(disc2);
-                    const a1 = (-AB + sq2) / B2;
-                    const a2 = (-AB - sq2) / B2;
-                    let alpha = -1;
-                    if (a1 > 0 && a2 > 0) alpha = Math.min(a1, a2);
-                    else if (a1 > 0) alpha = a1;
-                    else if (a2 > 0) alpha = a2;
-                    if (alpha > 0) {
-                        aimX = muzzle.x + alpha * Bx;
-                        aimY = muzzle.y + alpha * By;
-                        aimZ = muzzle.z + alpha * Bz;
-                    }
-                }
-            }
-
-            const dxLead = aimX - cam.position.x;
-            const dyLead = aimY - cam.position.y;
-            const dzLead = aimZ - cam.position.z;
-            const fwdLead = dxLead * camFwd.x + dyLead * camFwd.y + dzLead * camFwd.z;
-
-            const dxE = ePos.x - cam.position.x;
-            const dyE = ePos.y - cam.position.y;
-            const dzE = ePos.z - cam.position.z;
-            const fwdE = dxE * camFwd.x + dyE * camFwd.y + dzE * camFwd.z;
-
-            if (fwdLead <= 0.5 || fwdE <= 0.5) {
-                item.dot.style.display = 'none';
-                item.line.style.display = 'none';
-                break;
-            }
-
-            const ndcLead = this._tmpNdc.set(aimX, aimY, aimZ).project(cam);
-            const lx = (ndcLead.x * 0.5 + 0.5) * w;
-            const ly = (-ndcLead.y * 0.5 + 0.5) * h;
-
-            const ndcE = this._tmpVec.copy(ePos).project(cam);
-            const ex = (ndcE.x * 0.5 + 0.5) * w;
-            const ey = (-ndcE.y * 0.5 + 0.5) * h;
-
-            const ddx = ex - lx;
-            const ddy = ey - ly;
-            const dist = Math.hypot(ddx, ddy);
-
-            item.dot.style.display = 'block';
-            item.dot.style.transform = `translate(${lx}px, ${ly}px) translate(-50%, -50%)`;
-
-            if (dist > 4) {
-                item.line.style.display = 'block';
-                item.line.style.width = dist + 'px';
-                item.line.style.transform = `translate(${lx}px, ${ly}px) rotate(${Math.atan2(ddy, ddx)}rad)`;
-            } else {
-                item.line.style.display = 'none';
-            }
-
-            this._leadScreen = { x: lx, y: ly };
-        }
-
-        // Pousse vers le MouseAim la position d'attraction (ou null).
-        if (this.mouse && this.mouse.setMagnet) {
-            this.mouse.setMagnet(this._leadScreen);
-        }
+        this.targetView.update(target, cam, shipPos, dt);
     }
 
     /**
@@ -967,7 +595,7 @@ export class Game {
         }
         if (player.stats) player.stats.powerupsCollected += 1;
         if (player === this.localPlayer) {
-            this._flashPowerupBanner(type);
+            this.hud.flashPowerup(type);
         } else if (this.mode === 'host' && player.netId != null) {
             this.coop.notifyPickup(player.netId, type);
         }
@@ -985,19 +613,7 @@ export class Game {
         else if (type === 'rapid') ship.rapidTime = Math.max(ship.rapidTime, 12);
         else if (type === 'overcharge') ship.overchargeTime = Math.max(ship.overchargeTime, 12);
         this.stats.powerupsCollected += 1;
-        this._flashPowerupBanner(type);
-    }
-
-    _flashPowerupBanner(type) {
-        const banner = document.getElementById('powerup-banner');
-        if (!banner) return;
-        const def = POWERUP_TYPES[type];
-        banner.textContent = def.label;
-        banner.style.color = '#' + def.color.toString(16).padStart(6, '0');
-        banner.style.textShadow = `0 0 16px #${def.color.toString(16).padStart(6, '0')}`;
-        banner.classList.remove('show');
-        void banner.offsetWidth;
-        banner.classList.add('show');
+        this.hud.flashPowerup(type);
     }
 
     /**
@@ -1111,10 +727,7 @@ export class Game {
         this.sounds.stopEngine();
         this.music.playDefeat();
         this.targetView?.hide();
-        if (this.velocityVectorEl && this._velocityVisible) {
-            this.velocityVectorEl.classList.remove('visible');
-            this._velocityVisible = false;
-        }
+        this.velocityMarker?.hide();
         this.hud.showDefeat({
             wave: this.waveManager.wave,
             kills: this.stats.kills,
@@ -1223,28 +836,15 @@ export class Game {
         this.enemyMarkers?.hideAll();
         this.allyMarkers?.hideAll();
         this.targetView?.hide();
-        if (this.velocityVectorEl && this._velocityVisible) {
-            this.velocityVectorEl.classList.remove('visible');
-            this._velocityVisible = false;
-        }
+        this.velocityMarker?.hide();
+        this.lockHud?.hide();
+        this.leadIndicator?.hide();
         this.combat.playerShotsFired = 0;
         this.combat.playerShotsHit = 0;
         this.missiles.playerMissilesFired = 0;
         this._wasLockHeld = false;
         this._prevLockedCount = 0;
         this.targetLock?.clear();
-    }
-
-    _flashWaveBanner() {
-        if (!this.waveBanner) return;
-        const isBoss = this.waveManager.wave > 0 && this.waveManager.wave % 5 === 0;
-        this.waveBanner.textContent = isBoss
-            ? `▲ ▲ ▲  BOSS INCOMING — VAGUE ${this.waveManager.wave}  ▲ ▲ ▲`
-            : `▸ VAGUE ${this.waveManager.wave}`;
-        this.waveBanner.classList.toggle('boss', isBoss);
-        this.waveBanner.classList.remove('show');
-        void this.waveBanner.offsetWidth;
-        this.waveBanner.classList.add('show');
     }
 
     /**

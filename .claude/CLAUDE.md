@@ -117,13 +117,32 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-30 (commit 46de3ee). Confidence: 100%.
+Last indexed: 2026-05-30 (commit 45ec197). Confidence: 100%.
 ### Architecture
-repo is a multiplayer space-combat game: it accepts player input and network messages as inputs, runs a real-time simulation pipeline (physics, AI, combat, projectile/missile systems, asteroid streaming) on a Node.js authoritative server, and renders the resulting game state as an interactive browser-based canvas experience with spatial audio and HUD overlays. The game world is composed of ships, asteroids, planets, and projectiles. A dedicated server (server/server.js) manages authoritative game state and synchronises clients over the network. The client (src/main.js) bootstraps a Phaser-style game loop, consuming server state via NetClient, driving local systems (enemy AI, combat, missiles, asteroid streaming), and presenting the result through visual effects (trail lines), a targeting HUD, and a music/audio layer.
+repo is a browser-based multiplayer space shooter game: it accepts player input and network messages as inputs, runs them through a real-time game loop that simulates physics, AI, combat, missiles, and powerups, and renders the resulting game state as an animated 2D canvas scene with HUD overlays, audio, and synchronized co-op state delivered to all connected clients via a Node.js WebSocket server. The pipeline flows from raw user input and network events → InputManager and NetClient → core game systems (collision, combat, missiles, powerups, enemy AI) → entity state updates → canvas rendering with effects (trails, starfield) and HUD markers → audio output via MusicManager, with server/server.js acting as the authoritative relay/host for multiplayer sessions. ---
+
+
+
+| Layer | Technology | Role |
+|---|---|---|
+| **Runtime** | Node.js | Server-side WebSocket host |
+| **Language** | JavaScript (ES Modules) | Game client and server logic |
+| **Rendering** | HTML5 Canvas API | 2D scene rendering |
+| **Networking** | WebSocket (server/server.js) | Real-time multiplayer message relay |
+| **Audio** | Web Audio API / MusicManager | In-game music and sound effects |
+| **Tooling** | Python (minor) | Utility/build scripts |
+| **Configuration** | MCP (.mcp.json, .claude/) | AI-assisted development tooling |
+
+---
+
+
+
+
+The Node.js server entry point. Starts a WebSocket server that brokers multiplayer sessions — relaying game state, player actions, and co-op synchronization messages between connected browser clients.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `community-0` | The entities module is the **domain-object layer** of the game runtime — it defi | — |
+| `community-0` | The entities module is the **core domain-model and systems layer** of repowise's | — |
 ### Entry Points
 - `server/server.js`
 - `src/main.js`
@@ -152,16 +171,16 @@ repo is a multiplayer space-combat game: it accepts player input and network mes
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `src/Game.js` | 100.0th %ile | 28 | drakelia |
-| `styles.css` | 99.3th %ile | 15 | drakelia |
-| `src/systems/MissileSystem.js` | 98.7th %ile | 16 | drakelia |
-| `index.html` | 98.0th %ile | 17 | drakelia |
-| `src/systems/EnemyAI.js` | 97.4th %ile | 9 | drakelia |
+| `src/Game.js` | 100.0th %ile | 29 | drakelia |
+| `styles.css` | 99.4th %ile | 16 | drakelia |
+| `src/systems/MissileSystem.js` | 98.7th %ile | 17 | drakelia |
+| `index.html` | 98.1th %ile | 18 | drakelia |
+| `src/systems/CoopSystem.js` | 97.4th %ile | 3 | drakelia |
 
 ## Code health
-Hotspot health: 6.41/10 (stable) ·
-Average: 6.82/10 ·
-Worst: 3.02/10 (`src/systems/MissileSystem.js`)
+Hotspot health: 6.36/10 (stable) ·
+Average: 6.76/10 ·
+Worst: 1.8/10 (`src/systems/MissileSystem.js`)
 
 ### Critical biomarkers
 - `src/systems/CombatSystem.js` — nested complexity (update) — impact −2.0
