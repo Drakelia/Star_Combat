@@ -702,6 +702,84 @@ html, body {
     color: var(--a-fg);
 }
 
+/* ===== Wave incoming (compte à rebours centré « prochaine vague ») ===== */
+#wave-incoming {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    transform: translate(-50%, -50%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Orbitron', sans-serif;
+    text-align: center;
+    pointer-events: none;
+    color: var(--a-fg);
+    z-index: 19;
+}
+#wave-incoming.show {
+    display: flex;
+}
+#wave-incoming .wi-alert {
+    display: none;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--a-red);
+    text-shadow: 0 0 16px rgba(255, 45, 85, 0.7);
+}
+#wave-incoming .wi-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    opacity: 0.78;
+}
+#wave-incoming .wi-count {
+    font-size: 88px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: var(--a-fg);
+    text-shadow: 0 0 28px rgba(120, 200, 255, 0.55);
+    animation: wi-pulse 1s ease-in-out infinite;
+}
+#wave-incoming .wi-wave {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    opacity: 0.9;
+}
+@keyframes wi-pulse {
+    0%, 100% { transform: scale(1);    opacity: 0.92; }
+    50%      { transform: scale(1.14); opacity: 1; }
+}
+
+/* Variante vague difficile (boss) : rouge + alerte clignotante. */
+#wave-incoming.boss {
+    color: var(--a-red);
+}
+#wave-incoming.boss .wi-alert {
+    display: block;
+    animation: wi-alert-blink 0.7s steps(2, jump-none) infinite;
+}
+#wave-incoming.boss .wi-count {
+    color: var(--a-red);
+    text-shadow: 0 0 32px rgba(255, 45, 85, 0.8);
+    animation: wi-pulse-boss 0.7s ease-in-out infinite;
+}
+@keyframes wi-pulse-boss {
+    0%, 100% { transform: scale(1);   opacity: 0.9; }
+    50%      { transform: scale(1.2); opacity: 1; }
+}
+@keyframes wi-alert-blink {
+    0%   { opacity: 1; }
+    100% { opacity: 0.25; }
+}
+
 /* ===== Wave banner (BOSS INCOMING / WAVE NN) ===== */
 #wave-banner {
     position: absolute;

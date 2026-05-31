@@ -170,6 +170,7 @@ Le mode coop fait jouer **plusieurs pilotes dans le même monde** contre les vag
 ### HUD
 
 - **VAGUE** + statut (intermission / active / boss).
+- **Annonce de vague** : pendant l'intermission, un compte à rebours centré annonce l'arrivée de la prochaine vague (« PROCHAINE VAGUE », numéro de la vague à venir). Quand la prochaine est une **vague de boss** (toutes les 5 vagues), l'annonce passe en rouge avec une alerte clignotante « ESCADRON BOSS EN APPROCHE ».
 - **COQUE** + segments de **bouclier**.
 - **VEL** vitesse, **CIBLES** = nombre total de missiles verrouillés (somme des tiers sur toutes les cibles), **MSL** cooldown missiles, **ENN** ennemis restants.
 - **BOOST** réserve restante.
