@@ -30,6 +30,9 @@ export class ShipController {
         this.brakeStrength = opts.brakeStrength ?? 1.6;
         this.drag = opts.drag ?? 0.04;
         this.boostLateralBrake = opts.boostLateralBrake ?? 6;
+        // Vitesse de retombée vers maxSpeed une fois le boost coupé : plus c'est
+        // bas, plus le vaisseau garde son élan longtemps (au lieu de couper net).
+        this.overspeedDecay = opts.overspeedDecay ?? 0.8;
 
         this.boost = new BoostState(opts.boost);
 
@@ -141,14 +144,23 @@ export class ShipController {
         }
 
         if (braking) {
-            ship.velocity.addScaledVector(ship.velocity, -this.brakeStrength * dt);
+            // Freinage « boosté » : on applique la même puissance qu'une poussée
+            // en boost pour que le frein morde fort.
+            ship.velocity.addScaledVector(ship.velocity, -this.brakeStrength * this.boostMultiplier * dt);
         }
 
         ship.velocity.multiplyScalar(1 - this.drag * dt);
 
         const speed = ship.velocity.length();
-        const cap = boosting ? this.boostMaxSpeed : this.maxSpeed;
-        if (speed > cap) ship.velocity.multiplyScalar(cap / speed);
+        if (boosting) {
+            if (speed > this.boostMaxSpeed) ship.velocity.multiplyScalar(this.boostMaxSpeed / speed);
+        } else if (speed > this.maxSpeed) {
+            // Boost coupé au-dessus de la vitesse normale : on retombe vers
+            // maxSpeed progressivement plutôt que d'écrêter brutalement, pour
+            // conserver une partie de l'élan acquis pendant le boost.
+            const target = Math.max(this.maxSpeed, speed * Math.exp(-this.overspeedDecay * dt));
+            ship.velocity.multiplyScalar(target / speed);
+        }
 
         ship.thrust = Math.max(0, thrustInput) * accelMul;
         ship.boosting = boosting;
