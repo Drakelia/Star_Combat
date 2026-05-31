@@ -89,10 +89,10 @@
                 <div id="flight-controls">
                     <div class="kicker red">▸ FLIGHT CONTROLS</div>
                     <div class="grid">
-                        <div class="fc-row"><span class="fc-k">THRUST</span><span class="fc-v">W · S</span></div>
+                        <div class="fc-row"><span class="fc-k">THRUST</span><span class="fc-v" data-ctl="thrust">W · S</span></div>
                         <div class="fc-row"><span class="fc-k">BRAKE</span><span class="fc-v">X</span></div>
-                        <div class="fc-row"><span class="fc-k">STRAFE</span><span class="fc-v">Q · E</span></div>
-                        <div class="fc-row"><span class="fc-k">ROLL</span><span class="fc-v">A · D</span></div>
+                        <div class="fc-row"><span class="fc-k">STRAFE</span><span class="fc-v" data-ctl="strafe">Q · E</span></div>
+                        <div class="fc-row"><span class="fc-k">ROLL</span><span class="fc-v" data-ctl="roll">A · D</span></div>
                         <div class="fc-row"><span class="fc-k">UP / DOWN</span><span class="fc-v">SPACE / CTRL</span></div>
                         <div class="fc-row"><span class="fc-k">BOOST</span><span class="fc-v">SHIFT</span></div>
                         <div class="fc-row"><span class="fc-k">FIRE</span><span class="fc-v">LMB</span></div>
@@ -114,6 +114,24 @@
                         <span class="audio-label">MUSIQUE</span>
                         <input type="range" data-vol="music" min="0" max="1" step="0.01" value="1" />
                         <span class="audio-val" data-vol-val="music">100%</span>
+                    </div>
+                </div>
+
+                <div class="control-block">
+                    <div class="kicker red">▸ CLAVIER</div>
+                    <div class="ctl-row">
+                        <span class="ctl-label">DISPOSITION</span>
+                        <div class="ctl-choices" data-setting="layout">
+                            <button type="button" class="ctl-btn active" data-val="qwerty">QWERTY</button>
+                            <button type="button" class="ctl-btn" data-val="azerty">AZERTY</button>
+                        </div>
+                    </div>
+                    <div class="ctl-row">
+                        <span class="ctl-label">ROLL / STRAFE</span>
+                        <div class="ctl-choices" data-setting="rollPair">
+                            <button type="button" class="ctl-btn active" data-val="ad">A·D / Q·E</button>
+                            <button type="button" class="ctl-btn" data-val="qe">Q·E / A·D</button>
+                        </div>
                     </div>
                 </div>
 
@@ -360,10 +378,10 @@
                 <div class="pause-controls">
                     <div class="kicker red">▸ FLIGHT CONTROLS</div>
                     <div class="grid">
-                        <div class="fc-row"><span class="fc-k">THRUST</span><span class="fc-v">W · S</span></div>
+                        <div class="fc-row"><span class="fc-k">THRUST</span><span class="fc-v" data-ctl="thrust">W · S</span></div>
                         <div class="fc-row"><span class="fc-k">BRAKE</span><span class="fc-v">X</span></div>
-                        <div class="fc-row"><span class="fc-k">STRAFE</span><span class="fc-v">Q · E</span></div>
-                        <div class="fc-row"><span class="fc-k">ROLL</span><span class="fc-v">A · D</span></div>
+                        <div class="fc-row"><span class="fc-k">STRAFE</span><span class="fc-v" data-ctl="strafe">Q · E</span></div>
+                        <div class="fc-row"><span class="fc-k">ROLL</span><span class="fc-v" data-ctl="roll">A · D</span></div>
                         <div class="fc-row"><span class="fc-k">UP / DOWN</span><span class="fc-v">SPACE / CTRL</span></div>
                         <div class="fc-row"><span class="fc-k">BOOST</span><span class="fc-v">SHIFT</span></div>
                         <div class="fc-row"><span class="fc-k">FIRE</span><span class="fc-v">LMB</span></div>
@@ -385,6 +403,24 @@
                         <span class="audio-label">MUSIQUE</span>
                         <input type="range" data-vol="music" min="0" max="1" step="0.01" value="1" />
                         <span class="audio-val" data-vol-val="music">100%</span>
+                    </div>
+                </div>
+
+                <div class="control-block">
+                    <div class="kicker red">▸ CLAVIER</div>
+                    <div class="ctl-row">
+                        <span class="ctl-label">DISPOSITION</span>
+                        <div class="ctl-choices" data-setting="layout">
+                            <button type="button" class="ctl-btn active" data-val="qwerty">QWERTY</button>
+                            <button type="button" class="ctl-btn" data-val="azerty">AZERTY</button>
+                        </div>
+                    </div>
+                    <div class="ctl-row">
+                        <span class="ctl-label">ROLL / STRAFE</span>
+                        <div class="ctl-choices" data-setting="rollPair">
+                            <button type="button" class="ctl-btn active" data-val="ad">A·D / Q·E</button>
+                            <button type="button" class="ctl-btn" data-val="qe">Q·E / A·D</button>
+                        </div>
                     </div>
                 </div>
             </div>

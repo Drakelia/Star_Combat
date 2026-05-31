@@ -6,6 +6,7 @@ import { Ship } from './entities/Ship.js';
 import { Starfield } from './entities/Starfield.js';
 import { AsteroidField, ASTEROID_FIELD_SHAPES } from './entities/AsteroidField.js';
 import { ShipController } from './controls/ShipController.js';
+import { KeyBindings } from './controls/KeyBindings.js';
 import { ChaseCamera } from './scene/ChaseCamera.js';
 import { CollisionSystem } from './physics/CollisionSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
@@ -151,10 +152,15 @@ export class Game {
         scene.add(this.ship.trail);
         scene.add(this.ship.boostTrail);
 
+        // Mapping clavier partagé (layout QWERTY/AZERTY + permutation roll/strafe).
+        // Exposé pour que le menu puisse le reconfigurer à chaud (cf. main.js).
+        this.keyBindings = new KeyBindings();
+
         this.shipController = new ShipController(this.ship, this.input, {
             combat: this.combat,
             mouse: this.mouse,
             camera: this.sceneManager.camera,
+            bindings: this.keyBindings,
         });
         this.chaseCamera = new ChaseCamera(this.sceneManager.camera, this.ship);
 

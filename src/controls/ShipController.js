@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BoostState } from './BoostState.js';
+import { KeyBindings } from './KeyBindings.js';
 
 export class ShipController {
     constructor(ship, input, opts = {}) {
@@ -9,6 +10,9 @@ export class ShipController {
         this.mouse = opts.mouse ?? null;
         this.camera = opts.camera ?? null;
         this.aimDistance = opts.aimDistance ?? 1500;
+        // Mapping clavier partagé (layout + permutation roll/strafe). Lu chaque
+        // frame ; les changements via setLayout/setRollPair s'appliquent à chaud.
+        this.bindings = opts.bindings ?? new KeyBindings();
 
         this._raycaster = new THREE.Raycaster();
         this._ndc = { x: 0, y: 0 };
@@ -55,9 +59,11 @@ export class ShipController {
         const { input, ship, mouse } = this;
         const obj = ship.object;
 
+        const codes = this.bindings.codes;
+
         let pitch = 0, yaw = 0, roll = 0;
-        if (input.any('KeyA', 'ArrowLeft')) roll += 1;
-        if (input.any('KeyD', 'ArrowRight')) roll -= 1;
+        if (input.any(codes.rollLeft, 'ArrowLeft')) roll += 1;
+        if (input.any(codes.rollRight, 'ArrowRight')) roll -= 1;
 
         if (mouse) {
             const a = mouse.axes(0.08);
@@ -79,12 +85,12 @@ export class ShipController {
         }
 
         let thrustInput = 0;
-        if (input.any('KeyW', 'ArrowUp')) thrustInput += 1;
-        if (input.any('KeyS', 'ArrowDown')) thrustInput -= 1;
+        if (input.any(codes.forward, 'ArrowUp')) thrustInput += 1;
+        if (input.any(codes.back, 'ArrowDown')) thrustInput -= 1;
 
         let strafeInput = 0;
-        if (input.isDown('KeyQ')) strafeInput -= 1;
-        if (input.isDown('KeyE')) strafeInput += 1;
+        if (input.isDown(codes.strafeLeft)) strafeInput -= 1;
+        if (input.isDown(codes.strafeRight)) strafeInput += 1;
 
         let verticalInput = 0;
         if (input.isDown('Space')) verticalInput += 1;

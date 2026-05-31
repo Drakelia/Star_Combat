@@ -113,6 +113,64 @@ for (const s of musicSliders) {
 }
 
 // ============================================================
+// Réglages clavier (disposition QWERTY/AZERTY + permutation roll/strafe)
+// Partagés entre menu de démarrage et menu pause, persistés en localStorage.
+// ============================================================
+const KB_STORE = 'starcombat.keybindings';
+
+function loadKbSettings() {
+    try {
+        const raw = localStorage.getItem(KB_STORE);
+        if (raw) return JSON.parse(raw);
+    } catch { /* localStorage indisponible : on garde les défauts */ }
+    return {};
+}
+function saveKbSettings() {
+    try {
+        localStorage.setItem(KB_STORE, JSON.stringify({
+            layout: game.keyBindings.layout,
+            rollPair: game.keyBindings.rollPair,
+        }));
+    } catch { /* idem */ }
+}
+
+// Groupes de boutons (un par réglage, dupliqués entre menu démarrage et pause)
+// et libellés de commandes à rafraîchir.
+const ctlChoiceGroups = Array.from(document.querySelectorAll('.ctl-choices'));
+const ctlLabelEls = Array.from(document.querySelectorAll('[data-ctl]'));
+
+function refreshKbUI() {
+    const kb = game.keyBindings;
+    for (const group of ctlChoiceGroups) {
+        const current = group.dataset.setting === 'layout' ? kb.layout : kb.rollPair;
+        for (const btn of group.querySelectorAll('.ctl-btn')) {
+            btn.classList.toggle('active', btn.dataset.val === current);
+        }
+    }
+    for (const el of ctlLabelEls) {
+        const txt = kb.labels[el.dataset.ctl];
+        if (txt) el.textContent = txt;
+    }
+}
+
+// Applique les réglages persistés au démarrage.
+const _kbSaved = loadKbSettings();
+if (_kbSaved.layout) game.keyBindings.setLayout(_kbSaved.layout);
+if (_kbSaved.rollPair) game.keyBindings.setRollPair(_kbSaved.rollPair);
+refreshKbUI();
+
+for (const group of ctlChoiceGroups) {
+    group.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ctl-btn');
+        if (!btn) return;
+        if (group.dataset.setting === 'layout') game.keyBindings.setLayout(btn.dataset.val);
+        else game.keyBindings.setRollPair(btn.dataset.val);
+        saveKbSettings();
+        refreshKbUI();
+    });
+}
+
+// ============================================================
 // Music auto-start on first user interaction
 // ============================================================
 const startMenuMusic = () => {
