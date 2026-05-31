@@ -34,12 +34,12 @@ export class Powerup {
         this.label = def.label;
         this.alive = true;
         this.lifetime = 30;
-        this.radius = 2.8;
+        this.radius = 4.5;
 
         this.object = new THREE.Group();
         this.object.position.copy(position);
 
-        const coreGeo = new THREE.IcosahedronGeometry(1.2, 0);
+        const coreGeo = new THREE.IcosahedronGeometry(1.9, 0);
         const coreMat = new THREE.MeshStandardMaterial({
             color: def.color,
             emissive: def.color,
@@ -50,7 +50,7 @@ export class Powerup {
         this.core = new THREE.Mesh(coreGeo, coreMat);
         this.object.add(this.core);
 
-        const ringGeo = new THREE.TorusGeometry(2.0, 0.08, 6, 32);
+        const ringGeo = new THREE.TorusGeometry(3.2, 0.12, 6, 32);
         const ringMat = new THREE.MeshBasicMaterial({
             color: def.color,
             transparent: true,
@@ -61,7 +61,7 @@ export class Powerup {
         this.ring = new THREE.Mesh(ringGeo, ringMat);
         this.object.add(this.ring);
 
-        const haloGeo = new THREE.SphereGeometry(1.7, 16, 16);
+        const haloGeo = new THREE.SphereGeometry(2.7, 16, 16);
         const haloMat = new THREE.MeshBasicMaterial({
             color: def.color,
             transparent: true,
