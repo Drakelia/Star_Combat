@@ -117,43 +117,44 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-31 (commit 33dd901). Confidence: 100%.
+Last indexed: 2026-05-31 (commit d741eae). Confidence: 100%.
 ### Architecture
-This repository is a browser-based space shooter game: it takes player input (keyboard/mouse controls) and game configuration data, runs a real-time simulation loop through entity management, physics, wave spawning, and collision systems, and renders an interactive 2D game world with enemies, asteroids, bosses, powerups, and spatial audio to an HTML5 canvas served via a local development server. The game is a classic arcade-style space shooter built entirely in vanilla JavaScript, structured around a central game loop (src/Game.js) that orchestrates a collection of specialized managers and entity classes. A lightweight Node.js server (server/server.js) handles local development serving, while a Python dev server (.claude/devserver.py) provides an alternative development environment entry point. ---
+repo is a multiplayer browser-based missile-defense game: it accepts player input and real-time network messages as inputs, processes them through a client-side game loop (entity management, AI, physics, wave progression, and rendering) backed by a Node.js WebSocket server, and produces an interactive 2D game session with cooperative multiplayer support, HUD feedback, visual effects, and synchronized game state across connected clients. The game follows a classic arcade pattern — waves of enemies descend on a base, players fire missiles to intercept them, and cooperative mechanics allow multiple players to share the defense. The architecture is split cleanly between a thin authoritative server (server/server.js) handling connections and state relay, and a rich client (src/) that owns all gameplay logic, rendering, and UI. ---
 
 
 
 | Layer | Technology | Role |
 |---|---|---|
-| **Runtime** | Browser (HTML5 Canvas) | Game rendering and execution environment |
-| **Language** | Vanilla JavaScript (ES Modules) | All game logic, entities, and systems |
-| **Dev Server** | Node.js (server/server.js) | Static file serving for local development |
-| **Alt Dev Server** | Python (devserver.py) | Alternative local development server |
-| **Audio** | Web Audio API | Spatial sound effects via SoundManager |
-| **Tooling** | Claude AI (.claude/) | Developer workflow commands and audit tooling |
-| **Design Refs** | Markdown + assets (.design-ref/) | Visual and gameplay design specifications |
+| Runtime | Node.js | Server process hosting WebSocket connections |
+| Networking | WebSocket (ws library) | Real-time bidirectional communication between server and clients |
+| Client Language | Vanilla JavaScript (ES Modules) | All game logic, rendering, and UI |
+| Rendering | Browser Canvas API (2D) | Game world, effects, HUD drawing |
+| Configuration | .mcp.json, .claude/settings.json | MCP tooling and AI-assistant integration |
+| Build/Serve | Static file serving via server.js | Delivers client assets alongside WebSocket endpoint |
+| Scripting | Python (minor) | Utility/tooling scripts |
+| CI/Config | YAML | Pipeline or environment configuration |
 
-**No external game framework is used** — the architecture is hand-rolled without Phaser, Three.js, or similar libraries, relying directly on the browser's Canvas 2D API.
+No frontend framework or bundler is evident — the client runs as native ES modules delivered directly by the server.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `community-0` | The external:three module serves as the **rendering and scene-graph adapter laye | — |
+| `community-0` | The external:three module is the **3D rendering and scene-graph adapter layer**  | — |
 ### Entry Points
 - `server/server.js`
 - `src/main.js`
 ### Architectural Layers
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| entities | 33 |  |
-| devserver | 3 |  |
-| .mcp | 1 |  |
+| external:three | 36 |  |
+| devserver | 7 |  |
+| settings | 1 |  |
 | readme | 1 |  |
+| commands | 1 |  |
+| project | 1 |  |
+| .mcp | 1 |  |
+| render | 1 |  |
 | claude | 1 |  |
 | launch | 1 |  |
-| settings | 1 |  |
-| commands | 1 |  |
-| commands (1) | 1 |  |
-| readme (1) | 1 |  |
 
 ### Guided Tour (12 steps)
 1. **Project Overview & Conventions** — `CLAUDE.md`
@@ -173,8 +174,8 @@ This repository is a browser-based space shooter game: it takes player input (ke
 | `src/hud/HudManager.js` | 97.5th %ile | 8 | drakelia |
 
 ## Code health
-Hotspot health: 6.27/10 (stable) ·
-Average: 6.62/10 ·
+Hotspot health: 6.07/10 (stable) ·
+Average: 6.46/10 ·
 Worst: 1.0/10 (`src/systems/MissileSystem.js`)
 
 ### Critical biomarkers

@@ -52,7 +52,15 @@ const MIME = {
 
 function serveStatic(req, res) {
     // Chemin demandé → fichier sous ROOT, avec garde anti-traversée.
-    const reqPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    // decodeURIComponent jette sur une URL malformée (`%`, double-encodage…) :
+    // une exception ici tuerait tout le process, on la traite en 400.
+    let reqPath;
+    try {
+        reqPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    } catch {
+        res.writeHead(400).end('Bad request');
+        return;
+    }
     let filePath = path.join(ROOT, reqPath === '/' ? 'index.html' : reqPath);
     filePath = path.normalize(filePath);
     if (!filePath.startsWith(ROOT)) {
@@ -172,6 +180,14 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('error', () => { /* la fermeture sera gérée par 'close' */ });
+});
+
+// Filet de sécurité : une erreur isolée (requête bizarre, socket coupé…) ne doit
+// JAMAIS tuer le process — sinon la partie coop de tous les joueurs saute.
+process.on('uncaughtException', (e) => console.error('[star-combat] uncaught:', e));
+process.on('unhandledRejection', (e) => console.error('[star-combat] unhandled rejection:', e));
+httpServer.on('clientError', (err, socket) => {
+    if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
 });
 
 httpServer.listen(PORT, () => {
