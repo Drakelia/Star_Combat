@@ -14,11 +14,68 @@
  *
  * Aucune logique de jeu côté serveur : l'autorité de simulation est chez l'hôte.
  *
+ * Le serveur sert AUSSI les fichiers statiques du jeu (index.html, src/, …) sur
+ * le même port que le WebSocket : une seule origine, donc un seul tunnel /
+ * déploiement à exposer, et le `wss://` fonctionne derrière TLS sans config.
+ *
  * Lancement :  cd server && npm install && npm start   (port 8080 par défaut)
+ *   → ouvre http://localhost:8080/  (le HTTP et le WS partagent ce port)
  */
 import { WebSocketServer, WebSocket } from 'ws';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
+
+// Racine statique = dossier du repo (un cran au-dessus de server/).
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+const MIME = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.mjs': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.ico': 'image/x-icon',
+    '.webp': 'image/webp',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.wasm': 'application/wasm',
+};
+
+function serveStatic(req, res) {
+    // Chemin demandé → fichier sous ROOT, avec garde anti-traversée.
+    const reqPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    let filePath = path.join(ROOT, reqPath === '/' ? 'index.html' : reqPath);
+    filePath = path.normalize(filePath);
+    if (!filePath.startsWith(ROOT)) {
+        res.writeHead(403).end('Forbidden');
+        return;
+    }
+    fs.stat(filePath, (err, stat) => {
+        if (err || !stat.isFile()) {
+            // Dossier → index.html ; sinon 404.
+            if (!err && stat.isDirectory()) {
+                filePath = path.join(filePath, 'index.html');
+            } else {
+                res.writeHead(404).end('Not found');
+                return;
+            }
+        }
+        const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': type });
+        fs.createReadStream(filePath).on('error', () => res.end()).pipe(res);
+    });
+}
+
+const httpServer = http.createServer(serveStatic);
 
 const MSG = {
     WELCOME: 'welcome',
@@ -55,7 +112,7 @@ function broadcast(obj, exceptId = null) {
     }
 }
 
-const wss = new WebSocketServer({ port: PORT });
+const wss = new WebSocketServer({ server: httpServer });
 
 wss.on('connection', (ws) => {
     const id = nextId++;
@@ -117,4 +174,6 @@ wss.on('connection', (ws) => {
     ws.on('error', () => { /* la fermeture sera gérée par 'close' */ });
 });
 
-console.log(`[star-combat] serveur coop en écoute sur ws://0.0.0.0:${PORT}`);
+httpServer.listen(PORT, () => {
+    console.log(`[star-combat] jeu + relais coop sur http://0.0.0.0:${PORT}/ (HTTP et WS partagent ce port)`);
+});

@@ -1,0 +1,13 @@
+# Déploiement 1-clic sur Render (https://render.com) — plan gratuit.
+# Render fournit la variable PORT et un certificat HTTPS ; server.js sert à la
+# fois le jeu (HTTP) et le relais coop (WS) sur ce port. Une seule URL à partager.
+services:
+  - type: web
+    name: star-combat
+    runtime: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

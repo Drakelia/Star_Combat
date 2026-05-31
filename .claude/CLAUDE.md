@@ -117,46 +117,41 @@ dette technique récemment introduites.
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-05-30 (commit 45ec197). Confidence: 100%.
+Last indexed: 2026-05-31 (commit 33dd901). Confidence: 100%.
 ### Architecture
-repo is a browser-based multiplayer space shooter game: it accepts player input and network messages as inputs, runs them through a real-time game loop that simulates physics, AI, combat, missiles, and powerups, and renders the resulting game state as an animated 2D canvas scene with HUD overlays, audio, and synchronized co-op state delivered to all connected clients via a Node.js WebSocket server. The pipeline flows from raw user input and network events → InputManager and NetClient → core game systems (collision, combat, missiles, powerups, enemy AI) → entity state updates → canvas rendering with effects (trails, starfield) and HUD markers → audio output via MusicManager, with server/server.js acting as the authoritative relay/host for multiplayer sessions. ---
+This repository is a browser-based space shooter game: it takes player input (keyboard/mouse controls) and game configuration data, runs a real-time simulation loop through entity management, physics, wave spawning, and collision systems, and renders an interactive 2D game world with enemies, asteroids, bosses, powerups, and spatial audio to an HTML5 canvas served via a local development server. The game is a classic arcade-style space shooter built entirely in vanilla JavaScript, structured around a central game loop (src/Game.js) that orchestrates a collection of specialized managers and entity classes. A lightweight Node.js server (server/server.js) handles local development serving, while a Python dev server (.claude/devserver.py) provides an alternative development environment entry point. ---
 
 
 
 | Layer | Technology | Role |
 |---|---|---|
-| **Runtime** | Node.js | Server-side WebSocket host |
-| **Language** | JavaScript (ES Modules) | Game client and server logic |
-| **Rendering** | HTML5 Canvas API | 2D scene rendering |
-| **Networking** | WebSocket (server/server.js) | Real-time multiplayer message relay |
-| **Audio** | Web Audio API / MusicManager | In-game music and sound effects |
-| **Tooling** | Python (minor) | Utility/build scripts |
-| **Configuration** | MCP (.mcp.json, .claude/) | AI-assisted development tooling |
+| **Runtime** | Browser (HTML5 Canvas) | Game rendering and execution environment |
+| **Language** | Vanilla JavaScript (ES Modules) | All game logic, entities, and systems |
+| **Dev Server** | Node.js (server/server.js) | Static file serving for local development |
+| **Alt Dev Server** | Python (devserver.py) | Alternative local development server |
+| **Audio** | Web Audio API | Spatial sound effects via SoundManager |
+| **Tooling** | Claude AI (.claude/) | Developer workflow commands and audit tooling |
+| **Design Refs** | Markdown + assets (.design-ref/) | Visual and gameplay design specifications |
 
----
-
-
-
-
-The Node.js server entry point. Starts a WebSocket server that brokers multiplayer sessions — relaying game state, player actions, and co-op synchronization messages between connected browser clients.
+**No external game framework is used** — the architecture is hand-rolled without Phaser, Three.js, or similar libraries, relying directly on the browser's Canvas 2D API.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `community-0` | The entities module is the **core domain-model and systems layer** of repowise's | — |
+| `community-0` | The external:three module serves as the **rendering and scene-graph adapter laye | — |
 ### Entry Points
 - `server/server.js`
 - `src/main.js`
 ### Architectural Layers
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| entities | 32 |  |
+| entities | 33 |  |
 | devserver | 3 |  |
-| launch | 1 |  |
-| commands | 1 |  |
 | .mcp | 1 |  |
 | readme | 1 |  |
 | claude | 1 |  |
+| launch | 1 |  |
 | settings | 1 |  |
+| commands | 1 |  |
 | commands (1) | 1 |  |
 | readme (1) | 1 |  |
 
@@ -171,23 +166,23 @@ The Node.js server entry point. Starts a WebSocket server that brokers multiplay
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `src/Game.js` | 100.0th %ile | 29 | drakelia |
+| `src/Game.js` | 100.0th %ile | 30 | drakelia |
 | `styles.css` | 99.4th %ile | 16 | drakelia |
 | `src/systems/MissileSystem.js` | 98.7th %ile | 17 | drakelia |
 | `index.html` | 98.1th %ile | 18 | drakelia |
-| `src/systems/CoopSystem.js` | 97.4th %ile | 3 | drakelia |
+| `src/hud/HudManager.js` | 97.5th %ile | 8 | drakelia |
 
 ## Code health
-Hotspot health: 6.36/10 (stable) ·
-Average: 6.76/10 ·
-Worst: 1.8/10 (`src/systems/MissileSystem.js`)
+Hotspot health: 6.27/10 (stable) ·
+Average: 6.62/10 ·
+Worst: 1.0/10 (`src/systems/MissileSystem.js`)
 
 ### Critical biomarkers
-- `src/systems/CombatSystem.js` — nested complexity (update) — impact −2.0
-- `src/systems/MissileSystem.js` — nested complexity (update) — impact −1.7
+- `src/systems/MissileSystem.js` — untested hotspot — impact −2.0
+- `src/entities/AsteroidField.js` — hidden coupling — impact −2.0
 - `.design-ref/project/charte.jsx` — large method (ChartePanel) — impact −1.5
 - `src/controls/ShipController.js` — complex method (update) — impact −1.3
-- `src/systems/MissileSystem.js` — complex method (update) — impact −0.5
+- `src/systems/MissileSystem.js` — nested complexity (update) — impact −1.2
 
 ### Repowise MCP Tools
 

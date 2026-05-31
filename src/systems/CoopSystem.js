@@ -94,8 +94,16 @@ export class CoopSystem {
     }
 
     static defaultUrl() {
-        const host = (typeof location !== 'undefined' && location.hostname) || '127.0.0.1';
-        return `ws://${host}:8080`;
+        if (typeof location === 'undefined') return 'ws://127.0.0.1:8080';
+        // Servi en HTTPS (tunnel / hébergeur) : le relais est sur la MÊME origine,
+        // en `wss://` (un `ws://` serait bloqué par la page sécurisée).
+        if (location.protocol === 'https:') return `wss://${location.host}`;
+        // Dev local : si la page vient déjà du serveur Node unifié (il sert le
+        // statique), réutilise son origine ; sinon fallback sur le relais :8080.
+        if (location.port && location.port !== '8000' && location.port !== '3000' && location.port !== '5000') {
+            return `ws://${location.host}`;
+        }
+        return `ws://${location.hostname || '127.0.0.1'}:8080`;
     }
 
     isActive() {

@@ -20,13 +20,22 @@ Au lancement, le menu propose **▶ SOLO** ou **⊕ MULTIJOUEUR**. En solo, choi
 
 ### Multijoueur (coop)
 
-Le mode coop a besoin d'un petit **serveur de relais Node** (dossier `server/`) qui gère le lobby et fait transiter les messages :
+Le mode coop a besoin d'un petit **serveur de relais Node** (dossier `server/`) qui gère le lobby et fait transiter les messages. Ce serveur **sert aussi le jeu** (fichiers statiques) sur le même port : pas besoin d'un serveur HTTP séparé pour le coop.
 
 ```bash
-cd server && npm install && npm start   # écoute sur ws://0.0.0.0:8080
+cd server && npm install && npm start   # jeu + relais sur http://localhost:8080/
 ```
 
-Chaque joueur ouvre le jeu (servi comme ci-dessus), clique **⊕ MULTIJOUEUR** et rejoint le lobby. Le premier connecté est l'**hôte** ; il lance la partie quand l'équipe est prête. Voir la section [Multijoueur](#multijoueur) pour le détail du fonctionnement.
+Puis ouvrez `http://localhost:8080/`. Chaque joueur ouvre le jeu, clique **⊕ MULTIJOUEUR** et rejoint le lobby. Le premier connecté est l'**hôte** ; il lance la partie quand l'équipe est prête. Voir la section [Multijoueur](#multijoueur) pour le détail du fonctionnement.
+
+> En dev pur solo, `npx serve .` / `python -m http.server 8000` suffit ; le serveur Node n'est nécessaire que pour le coop.
+
+#### Jouer à plusieurs sur internet
+
+Comme le serveur Node sert le jeu **et** le relais sur une seule origine, le client dérive automatiquement l'URL WebSocket de la page (`wss://` derrière HTTPS). Il suffit donc d'exposer ce serveur publiquement :
+
+- **Déploiement gratuit (Render)** : un blueprint [`render.yaml`](render.yaml) est fourni. Connectez le dépôt sur [render.com](https://render.com) → *New + → Blueprint*. Render bâtit, fournit le HTTPS et une URL permanente à partager.
+- **Tunnel local** : exposez le port avec un tunnel (`cloudflared tunnel --url http://localhost:8080`, ou `ssh -R 80:localhost:8080 localhost.run`) et partagez l'URL https obtenue.
 
 ## Commandes
 
