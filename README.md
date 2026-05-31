@@ -16,7 +16,7 @@ python -m http.server 8000
 
 Puis ouvrez `http://localhost:<port>/`.
 
-Au lancement, le menu propose **▶ SOLO** ou **⊕ MULTIJOUEUR**. En solo, choisissez votre difficulté (**CADET / PILOT / ACE**) : elle multiplie le nombre et la résistance des ennemis (×0.5, ×1, ×1.7). Vous pouvez aussi régler les volumes **EFFETS** et **MUSIQUE**.
+Au lancement, le menu propose **▶ SOLO** ou **⊕ MULTIJOUEUR**. En solo, choisissez votre difficulté (**CADET / PILOT / ACE**) : elle multiplie le nombre et la résistance des ennemis (×0.5, ×1, ×1.7). Vous pouvez aussi régler les volumes **EFFETS** et **MUSIQUE**, et personnaliser le **CLAVIER** (voir [Commandes](#commandes)). Ces réglages sont conservés d'une partie à l'autre.
 
 ### Multijoueur (coop)
 
@@ -56,6 +56,13 @@ Comme le serveur Node sert le jeu **et** le relais sur une seule origine, le cli
 | **Shift** | Boost |
 | **Échap** | Pause / retour au menu |
 | **F** | Plein écran |
+
+### Personnalisation du clavier
+
+Le menu (de démarrage **et** de pause) propose deux réglages **CLAVIER**, appliqués à chaud et mémorisés entre les parties :
+
+- **Disposition — QWERTY / AZERTY** : en AZERTY, les commandes de vol gardent le même losange physique mais s'affichent avec les bons libellés (avance sur **Z**, etc.).
+- **Roll / Strafe — A·D / Q·E** ou **Q·E / A·D** : permute les deux paires. Par défaut le roulis est sur **A / D** et le strafe sur **Q / E** ; l'autre option les inverse. Le tableau ci-dessus correspond au réglage par défaut.
 
 ## Boucle de jeu
 
