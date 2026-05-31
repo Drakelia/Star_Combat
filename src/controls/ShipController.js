@@ -18,9 +18,9 @@ export class ShipController {
         this.aimPoint = new THREE.Vector3();
         this.hasAim = false;
 
-        this.pitchSpeed = opts.pitchSpeed ?? 1.6;
-        this.yawSpeed = opts.yawSpeed ?? 1.4;
-        this.rollSpeed = opts.rollSpeed ?? 1.8;
+        this.pitchSpeed = opts.pitchSpeed ?? 1.92;
+        this.yawSpeed = opts.yawSpeed ?? 1.68;
+        this.rollSpeed = opts.rollSpeed ?? 2.16;
 
         this.acceleration = opts.acceleration ?? 30;
         this.strafeAcceleration = opts.strafeAcceleration ?? 26;
