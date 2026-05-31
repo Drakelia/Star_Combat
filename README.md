@@ -79,7 +79,8 @@ Les PV des ennemis et leur nombre montent à chaque vague. En **coop**, le nombr
 
 - **Coque** (HP) : barre principale en bas à gauche. À zéro → game over.
 - **Bouclier** segmenté façon FTL : 3 segments. Après tout impact, attente d'**1 s** avant la reprise, puis recharge d'**un segment toutes les 3 s** (la barre du HUD montre la progression du prochain segment).
-- **Boost** : `Shift` consomme la réserve (jusqu'à 180 s) pour augmenter fortement la vitesse. Effets visuels : vignette douce, trail élargi (un halo orange se superpose à la trail principale), et la caméra prend du retard à l'enclenchement avant de garder un léger décalage tant que le boost dure (impression de prise de vitesse).
+- **Boost** : `Shift` consomme la réserve (jusqu'à 180 s) pour augmenter fortement la vitesse. Effets visuels : vignette douce, trail élargi (un halo orange se superpose à la trail principale), et la caméra prend du retard à l'enclenchement avant de garder un léger décalage tant que le boost dure (impression de prise de vitesse). Une fois le boost coupé au-dessus de la vitesse normale, le vaisseau **retombe progressivement** vers sa vitesse max hors boost au lieu d'être écrêté net — l'élan se conserve un court instant.
+- **Frein** : `X` freine fort (puissance équivalente à une poussée en boost) pour s'arrêter ou perdre de la vitesse rapidement.
 
 #### Comportement du bouclier face aux dégâts
 
