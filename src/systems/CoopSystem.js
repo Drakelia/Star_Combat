@@ -63,6 +63,15 @@ export class CoopSystem {
         this.onStarted = null;
         this.onSessionEnded = null;
         this.onError = null;
+        // État de transport : 'reconnecting' (coupure, tentatives en cours) /
+        // 'reconnected' (session retrouvée). Pour un retour visuel pendant le jeu.
+        this.onNetStatus = null;
+
+        // Keepalive HTTP : empêche l'hébergeur (free tier Render) de mettre
+        // l'instance en veille pendant une partie — le trafic WebSocket ne
+        // réinitialise pas son minuteur d'inactivité, un GET /healthz si.
+        this._keepaliveTimer = null;
+        this._connectedOnce = false;
 
         // --- Synchronisation (phase 4) ---
         this.remotes = new Map();       // hôte : id -> { id, player, ship, input, hasInput, fire }
@@ -126,9 +135,40 @@ export class CoopSystem {
         net.on(MSG.MISSILE, (m) => this._onMissile(m));
         net.on(MSG.STREAM, (m) => this._onStream(m));
         net.on('close', () => this._onClose());
-        net.on('error', (e) => this.onError?.(e));
+        net.on('reconnect', () => this._onReconnect());
+        // Une erreur après la 1ʳᵉ connexion = tentative de reconnexion en cours :
+        // on ne remonte pas « serveur injoignable » (géré via onNetStatus).
+        net.on('error', (e) => { if (!this._connectedOnce) this.onError?.(e); });
         await net.connect();
         this.connected = true;
+        this._connectedOnce = true;
+        this._startKeepalive();
+    }
+
+    // ============================================================
+    // Keepalive HTTP (anti-veille hébergeur)
+    // ============================================================
+    _startKeepalive() {
+        if (this._keepaliveTimer) return;
+        const url = this._healthUrl();
+        if (!url || typeof fetch === 'undefined') return;
+        // 4 min < seuil d'inactivité de Render (~15 min). Indépendant du dt du
+        // jeu : c'est un ping réseau, pas de la logique de simulation.
+        this._keepaliveTimer = setInterval(() => {
+            // no-cors : la requête atteint le serveur même en cross-origin (dev
+            // local page:8000 / serveur:8080) sans rejet ni bruit console.
+            fetch(url, { method: 'GET', cache: 'no-store', mode: 'no-cors' }).catch(() => {});
+        }, 4 * 60 * 1000);
+    }
+
+    _stopKeepalive() {
+        if (this._keepaliveTimer) { clearInterval(this._keepaliveTimer); this._keepaliveTimer = null; }
+    }
+
+    /** ws(s)://host[...] → http(s)://host/healthz */
+    _healthUrl() {
+        if (!this.url) return null;
+        return this.url.replace(/^ws/, 'http').replace(/\/+$/, '') + '/healthz';
     }
 
     ready() {
@@ -139,6 +179,8 @@ export class CoopSystem {
     }
 
     leave() {
+        this._stopKeepalive();
+        this._connectedOnce = false;
         if (this.net) { this.net.close(); this.net = null; }
         if (this.game.combat) {
             this.game.combat.onSpawn = null;
@@ -167,10 +209,30 @@ export class CoopSystem {
     // Lobby / session
     // ============================================================
     _onWelcome(m) {
+        const wasStarted = this.started;
         this.id = m.id;
         this.isHost = !!m.isHost;
         this.hostId = m.hostId ?? (m.players && m.players[0]) ?? m.id;
         this.players = m.players || [];
+
+        if (wasStarted) {
+            // Reconnexion en pleine partie : le serveur attribue une NOUVELLE
+            // identité réseau. Si la session a survécu côté serveur (`started`),
+            // on ré-applique les rôles et on adopte le nouvel id SANS régénérer
+            // le monde. Sinon la session est perdue côté serveur (process
+            // redémarré / hôte parti) → on termine proprement vers le menu.
+            if (m.started) {
+                this.game.localPlayer.netId = this.id;
+                this.game.mode = this.isHost ? 'host' : 'client';
+                this._applyRoles();
+                if (this.isHost) this._syncHostRoster();
+                this.onNetStatus?.('reconnected');
+            } else {
+                this._onSessionEnded();
+            }
+            return;
+        }
+
         if (m.started && m.seed != null) {
             this._applyStart(m.seed, m.difficulty); // late-join
         } else {
@@ -197,8 +259,18 @@ export class CoopSystem {
         this._inputAcc = 0;
         this._snapAcc = 0;
         this.game.beginRun(difficulty ?? 1);
+        if (this.isHost) this._syncHostRoster();
+        this._applyRoles();
+        this.onStarted?.();
+    }
+
+    /**
+     * (Ré)applique l'arbitrage hôte/client sur `combat` & `missiles` selon le
+     * rôle courant. Idempotent — appelé au lancement ET à chaque reconnexion
+     * (le rôle peut avoir changé) sans régénérer le monde.
+     */
+    _applyRoles() {
         if (this.isHost) {
-            this._syncHostRoster();
             // Hôte autoritaire : applique le dégât directement + diffuse chaque
             // tir local aux clients en projectile visuel (joint au snapshot).
             this.game.combat.authoritative = true;
@@ -222,7 +294,6 @@ export class CoopSystem {
             this.game.missiles.onPlayerHit = (netId, dmg, mis) => this._sendHit(netId, dmg, mis);
             this.game.missiles.onSpawn = (m) => this._onClientMissile(m);
         }
-        this.onStarted?.();
     }
 
     _onSessionEnded() {
@@ -232,7 +303,16 @@ export class CoopSystem {
 
     _onClose() {
         this.connected = false;
-        if (!this.started) this.onSessionEnded?.();
+        // Coupure de transport : `NetClient` retente automatiquement dès lors
+        // qu'une connexion avait abouti. On NE termine PAS la session ici — seul
+        // un SESSION_ENDED explicite du serveur (ou un welcome sans session au
+        // retour) le fait. On signale juste l'état pour le retour visuel.
+        if (this._connectedOnce) this.onNetStatus?.('reconnecting');
+    }
+
+    /** Transport revenu après coupure. Le WELCOME qui suit ré-applique les rôles. */
+    _onReconnect() {
+        this.connected = true;
     }
 
     _emitLobby() {

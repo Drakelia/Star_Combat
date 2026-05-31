@@ -59,6 +59,10 @@ export class HudManager {
         this.respawnBannerEl = document.getElementById('respawn-banner');
         this._respawnCache = null;
 
+        // Bannière d'état réseau coop (coupure / reconnexion).
+        this.netBannerEl = document.getElementById('net-banner');
+        this._netCache = null;
+
         // Bannières ponctuelles (powerup ramassé / nouvelle vague).
         this.powerupBannerEl = document.getElementById('powerup-banner');
         this.waveBannerEl = document.getElementById('wave-banner');
@@ -296,6 +300,24 @@ export class HudManager {
             el.textContent = `Réapparition dans ${q} s`;
             if (this._respawnCache === null) el.classList.add('show');
             this._respawnCache = q;
+        }
+    }
+
+    /**
+     * Bannière d'état réseau coop (« Connexion perdue — reconnexion… »).
+     * `text=null` ⇒ masquée. N'écrit le DOM qu'au changement.
+     */
+    setNetStatus(text) {
+        const el = this.netBannerEl;
+        if (!el) return;
+        if (text == null) {
+            if (this._netCache !== null) { el.classList.remove('show'); this._netCache = null; }
+            return;
+        }
+        if (this._netCache !== text) {
+            el.textContent = text;
+            if (this._netCache === null) el.classList.add('show');
+            this._netCache = text;
         }
     }
 

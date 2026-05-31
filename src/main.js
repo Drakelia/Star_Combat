@@ -253,6 +253,7 @@ game.coop.onStarted = () => {
 };
 game.coop.onSessionEnded = () => {
     hideLobby();
+    game.hud.setNetStatus(null);
     if (game.running || game.gameOver) {
         game.returnToMenu();
     } else {
@@ -262,6 +263,16 @@ game.coop.onSessionEnded = () => {
 game.coop.onError = () => {
     if (lobbyStatus) {
         lobbyStatus.textContent = 'Serveur injoignable — vérifiez que le serveur coop tourne (dossier server/).';
+    }
+};
+game.coop.onNetStatus = (status) => {
+    if (status === 'reconnecting') {
+        game.hud.setNetStatus('Connexion perdue — reconnexion…');
+        if (lobbyOverlay && lobbyOverlay.classList.contains('show') && lobbyStatus) {
+            lobbyStatus.textContent = 'Connexion perdue — reconnexion…';
+        }
+    } else if (status === 'reconnected') {
+        game.hud.setNetStatus(null);
     }
 };
 
